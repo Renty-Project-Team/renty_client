@@ -13,8 +13,10 @@ class LogoAppBar extends StatelessWidget implements PreferredSizeWidget {
       'ㅂㄹㅂ', // 앱 이름 또는 로고 텍스트
       style: TextStyle(
         color: logoColor,
-        fontSize: 24, // 적절한 크기로 조절
+        fontFamily: 'Hakgyoansim',
+        fontSize: 32, // 적절한 크기로 조절
         fontWeight: FontWeight.bold, // 굵게
+        letterSpacing: -5.0, // 글자 간격 조절
         // fontFamily: 'YourBrandFont', // 전용 폰트가 있다면 지정
       ),
     );

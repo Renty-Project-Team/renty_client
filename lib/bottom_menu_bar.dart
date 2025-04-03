@@ -33,7 +33,7 @@ class BottomMenuBar extends StatelessWidget {
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(
               icon: Icon(Icons.home_filled, size: iconSize),
-              label: '홈', // 텍스트 스타일을 지정합니다.
+              label: "홈", 
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.search, size: iconSize),
@@ -53,7 +53,6 @@ class BottomMenuBar extends StatelessWidget {
             ),
           ],
           currentIndex: 0,
-          selectedItemColor: theme.colorScheme.primary, // 선택된 아이템 색상
           onTap: (index) {} // Handle tap here if needed
         ),
       );

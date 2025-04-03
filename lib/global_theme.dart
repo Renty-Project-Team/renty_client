@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-final Color primaryBrandColor = Colors.indigoAccent[700]!; // 또는 Colors.deepPurpleAccent;
+final Color primaryBrandColor = Color(0xFF3154FF); // 또는 Colors.deepPurpleAccent;
 
 ThemeData buildAppTheme() {
   // 기본 테마를 light로 설정하고 필요한 부분만 커스터마이징
@@ -93,8 +93,8 @@ ThemeData buildAppTheme() {
       backgroundColor: Colors.white, // 배경 흰색
       selectedItemColor: primaryBrandColor, // 선택된 아이템 색상 (주요 색상)
       unselectedItemColor: Colors.grey[600], // 선택되지 않은 아이템 색상 (연한 회색)
-      selectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, fontFamily: 'Noto Sans KR'),
-      unselectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, fontFamily: 'Noto Sans KR'),
+      selectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'Hakgyoansim'),
+      unselectedLabelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'Hakgyoansim'),
       type: BottomNavigationBarType.fixed, // 아이템이 4개 이상일 때 고정 타입
       elevation: 0, // 그림자 없음
       showSelectedLabels: true,
