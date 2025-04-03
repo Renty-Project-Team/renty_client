@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:renty_client/search.dart';
 
 class BottomMenuBar extends StatelessWidget {
   final int currentIndex; // 현재 선택된 인덱스
@@ -53,7 +54,15 @@ class BottomMenuBar extends StatelessWidget {
             ),
           ],
           currentIndex: 0,
-          onTap: (index) {} // Handle tap here if needed
+          onTap: (index) {
+            print('$index');
+            if(index ==1){
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context)=>SearchPage())
+              );
+            }
+          } // Handle tap here if needed
         ),
       );
   }
