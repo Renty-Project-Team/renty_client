@@ -59,7 +59,7 @@ class BottomMenuBar extends StatelessWidget {
             if(index ==1){
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context)=>SearchPage())
+                MaterialPageRoute(builder: (context)=>SearchPage()),
               );
             }
           } // Handle tap here if needed
