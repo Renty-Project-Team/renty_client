@@ -93,26 +93,72 @@ class ProductListPage extends StatelessWidget {
       views: 321,
       imageUrl: "https://picsum.photos/202",
     ),
+    Product(
+      title: "10 번째 상품",
+      price: "일 1,800원",
+      deposit: "보증금 12,000원",
+      likes: 56,
+      views: 321,
+      imageUrl: "https://picsum.photos/202",
+    ),
+    Product(
+      title: "11 번째 상품",
+      price: "일 1,800원",
+      deposit: "보증금 12,000원",
+      likes: 56,
+      views: 321,
+      imageUrl: "https://picsum.photos/202",
+    ),
+    Product(
+      title: "12 번째 상품",
+      price: "일 1,800원",
+      deposit: "보증금 12,000원",
+      likes: 56,
+      views: 321,
+      imageUrl: "https://picsum.photos/202",
+    ),
+    Product(
+      title: "13 번째 상품",
+      price: "일 1,800원",
+      deposit: "보증금 12,000원",
+      likes: 56,
+      views: 321,
+      imageUrl: "https://picsum.photos/202",
+    ),
+    Product(
+      title: "14 번째 상품",
+      price: "일 1,800원",
+      deposit: "보증금 12,000원",
+      likes: 56,
+      views: 321,
+      imageUrl: "https://picsum.photos/202",
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
+    // 광고 포함해서 실제로 표시될 전체 항목 수 계산
+    final totalItemCount = products.length + (products.length ~/ 4);
+
     return Scaffold(
       body: ListView.builder(
-        itemCount: products.length,
+        itemCount: totalItemCount,
         itemBuilder: (context, index) {
-          final product = products[index];
-          if(index % 4==0 && index !=0){
-            index=index-1;
+          // 4번째마다 광고
+          if (index!=0 && index % 5 == 0) {
             return AdCard();
           }
+
+          // 광고가 들어간 만큼 인덱스 조정
+          final productIndex = index - (index ~/ 5);
+          final product = products[productIndex];
+
           return ProductCard(product: product);
         },
       ),
     );
   }
 }
-
 class ProductCard extends StatelessWidget {
   final Product product;
 
