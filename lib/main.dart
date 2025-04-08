@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:renty_client/api_client.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
-// import 'package:http/http.dart' as http;
 
-void main() {
+
+final ApiClient apiClient = ApiClient();
+
+void main() async {
+  // Flutter 엔진 초기화 보장
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 앱 실행 전 ApiClient 초기화 (비동기 작업 완료 기다림)
+  await apiClient.initialize();
   runApp(const MyApp());
 }
 
@@ -38,5 +46,4 @@ class MainPage extends StatelessWidget {
     );
   }
 }
-
 
