@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
+import 'mainBoard.dart';
 // import 'package:http/http.dart' as http;
 
 void main() {
@@ -32,7 +33,7 @@ class MainPage extends StatelessWidget {
     return Scaffold(
       appBar: LogoAppBar(),
       body: Center(
-        child: Text("홈 화면"),
+        child: ProductListPage()
       ),
       bottomNavigationBar: BottomMenuBar(currentIndex: 1),
     );

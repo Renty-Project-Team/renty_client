@@ -12,7 +12,7 @@ class SearchCategories extends StatelessWidget {  //아이콘 출가 할거 있�
     {'icon': Icons.sports_tennis, 'label': '스포츠레저'},
     {'icon': Icons.baby_changing_station, 'label': '유아 및 아동'},
     {'icon': Icons.pets, 'label': '반려동물 용품'},
-    {'icon': Icons.local_hospital, 'label': '건강 및 음료'},
+    {'icon': Icons.local_hospital, 'label': '건강 및 의료'},
     {'icon': Icons.hiking, 'label': '취미 및 여가'},
   ];
 
