@@ -21,6 +21,8 @@ class SignupPassword extends StatelessWidget {
               Text('${signupData.name} 로그인할때 사용할 비밀번호를 입력해주세요', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               TextField(
+                controller: passwordController,
+                obscureText: true,
                 autofocus: true,
                 style: TextStyle(fontSize: 20),
                 decoration: InputDecoration(
@@ -38,7 +40,7 @@ class SignupPassword extends StatelessWidget {
                       context,
                       MaterialPageRoute(builder: (context) =>
                           SignupPhone(
-                            signupData: signupData.copyWith(email: passwordController.text),
+                            signupData: signupData.copyWith(pw: passwordController.text),
                           ),
                       ),
                     );

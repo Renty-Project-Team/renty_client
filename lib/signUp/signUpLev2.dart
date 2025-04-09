@@ -19,9 +19,10 @@ class SignupEmailPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(height: 60),
-              Text('${signupData.copyWith} 사용할 이메일을 입력해주세요', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              Text('${signupData.name} 사용할 이메일을 입력해주세요', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               TextField(
+                controller: emailController,
                 autofocus: true,
                 style: TextStyle(fontSize: 20),
                 decoration: InputDecoration(
@@ -35,6 +36,7 @@ class SignupEmailPage extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    print('${emailController.text}');
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) =>

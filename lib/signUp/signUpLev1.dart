@@ -40,7 +40,7 @@ class SignupNamePage extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => SignupEmailPage(
-                          signupData: signupData.copyWith(email: nameController.text),
+                          signupData: signupData.copyWith(name: nameController.text),
                         ),
                       ),
                     );

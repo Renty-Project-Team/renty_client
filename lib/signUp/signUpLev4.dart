@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/signUp/signUpData.dart';
+import 'signUpLev5.dart';
 
 class SignupPhone extends StatelessWidget {
   final SignupData signupData;
   SignupPhone({Key? key, required this.signupData}) : super(key: key);
-  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController phoneNumController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +21,7 @@ class SignupPhone extends StatelessWidget {
               Text('${signupData.name} 사용중인 전화번호를 입력해주세요', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               TextField(
+                controller: phoneNumController,
                 autofocus: true,
                 style: TextStyle(fontSize: 20),
                 decoration: InputDecoration(
@@ -32,7 +34,16 @@ class SignupPhone extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+
                   onPressed: () {// 다음 단계로 이동
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) =>
+                          SignupConfirmPage(
+                            signupData: signupData.copyWith(phone: phoneNumController.text),
+                          ),
+                      ),
+                    );
                   },
                   child: Text('다음'),
                   style: ElevatedButton.styleFrom(

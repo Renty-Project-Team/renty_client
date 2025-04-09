@@ -1,12 +1,12 @@
 class SignupData {
   String name;
-  String birth;
+  String pw;
   String email;
   String phone;
 
   SignupData({
     this.name = '',
-    this.birth = '',
+    this.pw = '',
     this.email = '',
     this.phone = '',
   });
@@ -14,14 +14,14 @@ class SignupData {
   // 복사본 생성
   SignupData copyWith({
     String? name,
-    String? birth,
     String? email,
+    String? pw,
     String? phone,
   }) {
     return SignupData(
       name: name ?? this.name,
-      birth: birth ?? this.birth,
       email: email ?? this.email,
+      pw: pw ?? this.pw,
       phone: phone ?? this.phone,
     );
   }
