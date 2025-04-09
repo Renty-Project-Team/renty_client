@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
-import 'login.dart';
-import 'mainBoard.dart';
 // import 'package:http/http.dart' as http;
 
 void main() {
@@ -20,7 +18,7 @@ class MyApp extends StatelessWidget {
       theme: buildAppTheme(), // 글로벌 테마 적용
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginPage(),
+        '/': (context) => const MainPage(),
       },
     );
   }
@@ -34,7 +32,7 @@ class MainPage extends StatelessWidget {
     return Scaffold(
       appBar: LogoAppBar(),
       body: Center(
-        child: ProductListPage()
+        child: Text("홈 화면"),
       ),
       bottomNavigationBar: BottomMenuBar(currentIndex: 1),
     );
