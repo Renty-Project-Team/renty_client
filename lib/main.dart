@@ -3,6 +3,7 @@ import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'login.dart';
+import 'mainBoard.dart';
 // import 'package:http/http.dart' as http;
 
 void main() {
@@ -31,9 +32,9 @@ class MainPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: LogoAppBar(),
+      appBar: LogoAppBar(showBackButton: false),
       body: Center(
-        child: Text("홈 화면"),
+        child: ProductListPage(),
       ),
       bottomNavigationBar: BottomMenuBar(currentIndex: 1),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'signUp/signUpData.dart';
 import 'signUp/signUpLev1.dart';
+import 'main.dart';
 
 class CustomLoginScreen extends StatefulWidget {
   const CustomLoginScreen({super.key});
@@ -114,7 +115,15 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text('빌려봄 로그인', style: TextStyle(color: Colors.white)),
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => MainPage())
+                          );
+                        },
+                        child: Text('빌려봄 로그인', style: TextStyle(color: Colors.white)),
+                      )
                     ),
                   ),
                   SizedBox(height: 24),
