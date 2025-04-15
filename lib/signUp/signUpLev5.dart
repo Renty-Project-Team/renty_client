@@ -24,6 +24,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
   String _statusMessage = '';
 
   Future<void> _login() async {
+    print(_formKey.currentState?.validate());
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
@@ -46,7 +47,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
             'phoneNumber': phoneController.text,
           },
         );
-
+        print("test");
         // 성공 (예: 상태 코드 200)
         if (response.statusCode == 200) {
           setState(() {
@@ -121,16 +122,17 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
     super.dispose();
   }
 
-  Widget _buildField(String label, TextEditingController controller, {bool obscure = false}) {
+  Widget _buildField(String label, TextEditingController controller, {bool obscure = false, String? Function(String?)? validator}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[800])),
         SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: controller,
           obscureText: obscure,
           style: TextStyle(fontSize: 18),
+          validator: validator, // 추가
           decoration: InputDecoration(
             hintText: '$label 입력',
             enabledBorder: UnderlineInputBorder(
@@ -153,55 +155,73 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 40),
-              Text('입력하신 정보를 확인해주세요',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              SizedBox(height: 32),
+          child: Form( // ✅ Form으로 감싸줌
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 40),
+                Text('입력하신 정보를 확인해주세요',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                SizedBox(height: 32),
 
-              _buildField('이름', nameController),
-              _buildField('이메일', emailController),
-              _buildField('비밀번호', passwordController, obscure: true),
-              _buildField('전화번호', phoneController),
+                _buildField('이름', nameController, validator: (value) {
+                  if (value == null || value.isEmpty) return '이름을 입력해주세요';
+                  return null;
+                }),
+                _buildField('이메일', emailController, validator: (value) {
+                  if (value == null || value.isEmpty) return '이메일을 입력해주세요';
+                  if (!value.contains('@')) return '올바른 이메일 형식을 입력해주세요';
+                  return null;
+                }),
+                _buildField('비밀번호', passwordController, obscure: true, validator: (value) {
+                  if (value == null || value.length < 6) return '비밀번호는 최소 6자 이상이어야 해요';
+                  return null;
+                }),
+                _buildField('전화번호', phoneController, validator: (value) {
+                  if (value == null || value.isEmpty) return '전화번호를 입력해주세요';
+                  return null;
+                }),
 
-              Spacer(),
+                Spacer(),
 
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final updatedData = widget.signupData.copyWith(
-                      name: nameController.text,
-                      email: emailController.text,
-                      pw: passwordController.text,
-                      phone: phoneController.text,
-                    );
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (_formKey.currentState?.validate() ?? false) {
+                        final updatedData = widget.signupData.copyWith(
+                          name: nameController.text,
+                          email: emailController.text,
+                          pw: passwordController.text,
+                          phone: phoneController.text,
+                        );
 
-                    _login; // 로딩 중 비활성화
-                    // TODO: 서버 전송
-                    print(updatedData);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => LoginPage()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF3182F6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
+                        await _login(); // 로딩 중 비활성화
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => LoginPage()),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF3182F6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: Text('회원가입 완료', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
-                  child: Text('회원가입 완료', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
-              ),
-              SizedBox(height: 24),
-            ],
+                SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
 }
 
