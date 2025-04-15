@@ -55,7 +55,6 @@ class BottomMenuBar extends StatelessWidget {
           ],
           currentIndex: 0,
           onTap: (index) {
-            print('$index');
             if(index ==1){
               Navigator.push(
                 context,
