@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/signUp/signUpData.dart';
 import 'package:renty_client/login.dart';
+import 'package:dio/dio.dart';
+import 'package:renty_client/main.dart';
 
 class SignupConfirmPage extends StatefulWidget {
   final SignupData signupData;
@@ -16,6 +18,90 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
   late TextEditingController emailController;
   late TextEditingController passwordController;
   late TextEditingController phoneController;
+  final _formKey = GlobalKey<FormState>();
+  bool _rememberMe = true; // "로그인 상태 유지" 기본값
+  bool _isLoading = false;
+  String _statusMessage = '';
+
+  Future<void> _login() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() {
+        _isLoading = true;
+        _statusMessage = '로그인 시도 중...';
+      });
+
+      try {
+        // ApiClient를 통해 Dio 인스턴스 접근
+        // !!! 중요: 실제 로그인 API 엔드포인트로 변경하세요 !!!
+        // 예: /auth/login, /account/login 등
+        final response = await apiClient.client.post(
+          '/Auth/register', // 예시 엔드포인트
+          data: {
+            // !!! 중요: 서버가 요구하는 필드명으로 정확히 변경하세요 !!!
+            'name': nameController.text,
+            'nickname': "test1",
+            'accountNumber': "11111",
+            'email': emailController.text,
+            'password': passwordController.text,
+            'phoneNumber': phoneController.text,
+          },
+        );
+
+        // 성공 (예: 상태 코드 200)
+        if (response.statusCode == 200) {
+          setState(() {
+            _statusMessage = '로그인 성공!';
+            // 로그인 성공 후 다음 화면으로 이동하거나 상태 업데이트
+            // 예: Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+            print('로그인 성공 데이터: ${response.data}'); // 서버 응답 데이터 확인
+          });
+          // 로그인 성공 후 쿠키가 잘 저장되었는지 확인 (디버깅용)
+          // _checkCookies();
+        } else {
+          // 서버에서 예상치 못한 성공 상태 코드 반환
+          setState(() {
+            _statusMessage = '로그인 실패: 서버 응답 코드 ${response.statusCode}';
+          });
+        }
+      } on DioException catch (e) {
+        // Dio 관련 오류 처리
+        String errorMessage = '로그인 오류 발생';
+        if (e.response != null) {
+          // 서버가 오류 응답을 반환한 경우
+          print('서버 오류 응답: ${e.response?.data}');
+          print('서버 오류 상태 코드: ${e.response?.statusCode}');
+          if (e.response?.statusCode == 401) {
+            errorMessage = '이메일 또는 비밀번호가 잘못되었습니다.';
+          } else {
+            errorMessage = '서버 오류 (${e.response?.statusCode})';
+          }
+        } else if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          errorMessage = '네트워크 타임아웃 발생';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMessage = '네트워크 연결 오류 발생';
+        }
+        else {
+          // 기타 Dio 오류 (요청 설정 오류 등)
+          errorMessage = '네트워크 요청 중 오류 발생: ${e.message}';
+        }
+        setState(() {
+          _statusMessage = errorMessage;
+        });
+      } catch (e) {
+        // Dio 외의 예기치 않은 오류
+        setState(() {
+          _statusMessage = '알 수 없는 오류 발생: $e';
+        });
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
 
   @override
   void initState() {
@@ -94,6 +180,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
                       phone: phoneController.text,
                     );
 
+                    _login; // 로딩 중 비활성화
                     // TODO: 서버 전송
                     print(updatedData);
                     Navigator.push(

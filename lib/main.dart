@@ -4,9 +4,15 @@ import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'login.dart';
 import 'mainBoard.dart';
+import 'api_client.dart';
 // import 'package:http/http.dart' as http;
 
-void main() {
+final ApiClient apiClient = ApiClient();
+
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  // 앱 실행 전 ApiClient 초기화 (비동기 작업 완료 기다림)
+  await apiClient.initialize();
   runApp(const MyApp());
 }
 

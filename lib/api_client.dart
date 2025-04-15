@@ -26,7 +26,7 @@ class ApiClient {
 
     // Dio 인스턴스 생성 및 기본 옵션 설정
     final options = BaseOptions(
-      baseUrl: "https://deciding-silkworm-set.ngrok-free.app/api", // 예: http://localhost:5000/api
+      baseUrl: "http://192.168.252.206:8088/api", // 예: http://localhost:5000/api
       connectTimeout: Duration(seconds: 10),
       receiveTimeout: Duration(seconds: 10),
     );
