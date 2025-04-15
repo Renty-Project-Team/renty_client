@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 class BottomMenuBar extends StatelessWidget {
   final int currentIndex; // 현재 선택된 인덱스
-  // final ValueChanged<int> onTap; // 탭했을 때 호출될 콜백 함수
+  final ValueChanged<int> onTap; // 탭했을 때 호출될 콜백 함수
 
   const BottomMenuBar({
     super.key,
     required this.currentIndex,
-    // required this.onTap,
+    required this.onTap,
   });
   
   @override
@@ -52,8 +52,8 @@ class BottomMenuBar extends StatelessWidget {
               label: 'My',
             ),
           ],
-          currentIndex: 0,
-          onTap: (index) {} // Handle tap here if needed
+          currentIndex: currentIndex,
+          onTap: onTap // Handle tap here if needed
         ),
       );
   }
