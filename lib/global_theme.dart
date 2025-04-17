@@ -29,6 +29,7 @@ ThemeData buildAppTheme() {
       backgroundColor: Colors.white, // 배경 흰색
       foregroundColor: Colors.grey[850], // 아이콘/텍스트 색상 (뒤로가기 버튼 등)
       elevation: 0, // 그림자 없음
+      surfaceTintColor: Colors.transparent,
       iconTheme: IconThemeData(color: Colors.grey[800]), // 앱바 아이콘 기본 색상
       titleTextStyle: TextStyle( // 앱바 제목 스타일
         color: Colors.grey[850],
