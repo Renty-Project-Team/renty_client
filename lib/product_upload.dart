@@ -1,13 +1,42 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart'; // TextInputFormatter 사용
+import 'package:image_picker/image_picker.dart';
+import 'package:renty_client/main.dart';
 
 enum ItemCondition { used, new_ }
 
+enum CategoryType {
+  ClothingAndFashion('의류/패션'),
+  Electronics("전자제품"),
+  FurnitureAndInterior("가구/인테리어"),
+  Beauty("뷰티/미용"),
+  Books("도서"),
+  Stationery("문구"),
+  CarAccessories("자동차 용품"),
+  Sports('스포츠/레저'),
+  InfantsAndChildren('유아/아동'),
+  PetSupplies('반려동물 용품'),
+  HealthAndMedical('건강/의료'),
+  Hobbies('취미/여가');
+
+  const CategoryType(this.displayName);
+  final String displayName;
+}
+
+enum PriceUnit {
+  Day('일'),
+  Week('주'),
+  Month('월');
+
+  const PriceUnit(this.displayName);
+  final String displayName;
+}
+
 class ProductUpload extends StatefulWidget {
-  const ProductUpload({Key? key}) : super(key: key);
+  const ProductUpload({super.key});
 
   @override
   State<ProductUpload> createState() => _ProductUploadState();
@@ -26,11 +55,8 @@ class _ProductUploadState extends State<ProductUpload> {
   // 선택된 값들
   List<XFile> _images = []; // 선택된 이미지 파일 목록
   String? _selectedCategory; // 선택된 카테고리
-  ItemCondition _selectedCondition = ItemCondition.used; // 선택된 상품 상태 (기본값: 중고)
-  String _selectedPriceUnit = '일'; // 선택된 대여 가격 단위 (기본값: 일)
-
-  final List<String> _categories = ['의류/패션', '전자제품', '가구/인테리어', '뷰티/미용', '도서', '문구', '자동차 용품', '스포츠/레저', '유아/아동', '반려동물 용품', '건강/의료', '취미/여가'];
-  final List<String> _priceUnits = ['일', '주', '월']; // 대여 가격 단위 옵션
+  final ItemCondition _selectedCondition = ItemCondition.used; // 선택된 상품 상태 (기본값: 중고)
+  String _selectedPriceUnit = PriceUnit.Day.name; // 선택된 대여 가격 단위 (기본값: 일)
 
   final ImagePicker _picker = ImagePicker(); // 이미지 피커 인스턴스
 
@@ -56,7 +82,6 @@ class _ProductUploadState extends State<ProductUpload> {
       }
     } catch (e) {
       // 에러 처리 (예: 권한 거부)
-      print('이미지 선택 에러: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('이미지를 가져오는 중 오류가 발생했습니다: $e')),
       );
@@ -89,7 +114,6 @@ class _ProductUploadState extends State<ProductUpload> {
           TextButton(
             onPressed: () {
               // TODO: 임시 저장 로직 구현
-              print('임시 저장 버튼 클릭됨');
             },
             child: const Text(
               '임시 저장',
@@ -118,6 +142,9 @@ class _ProductUploadState extends State<ProductUpload> {
                     if (value == null || value.isEmpty) {
                       return '제목을 입력해주세요.';
                     }
+                    else if (value.length > 50) {
+                      return '제목은 최대 50자까지 입력 가능합니다.';
+                    }
                     return null;
                   },
                 ),
@@ -129,10 +156,10 @@ class _ProductUploadState extends State<ProductUpload> {
                   value: _selectedCategory,
                   hint: const Text('카테고리 선택'),
                   decoration: _buildInputDecoration(color: Colors.grey[400]!),
-                  items: _categories.map((String category) {
+                  items: CategoryType.values.map((var category) {
                     return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
+                      value: category.name,
+                      child: Text(category.displayName),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
@@ -149,17 +176,6 @@ class _ProductUploadState extends State<ProductUpload> {
                 ),
                 const SizedBox(height: 24.0),
 
-                // --- 상품 상태 ---
-                _buildSectionTitle('상품 상태'),
-                Row(
-                  children: [
-                    _buildConditionRadio(ItemCondition.used, '중고 상품'),
-                    const SizedBox(width: 16),
-                    _buildConditionRadio(ItemCondition.new_, '새 상품'),
-                  ],
-                ),
-                const SizedBox(height: 24.0),
-
                 // --- 대여 가격 ---
                 _buildSectionTitle('대여 가격'),
                 Row(
@@ -170,10 +186,10 @@ class _ProductUploadState extends State<ProductUpload> {
                       child: DropdownButtonFormField<String>(
                         value: _selectedPriceUnit,
                         decoration: _buildInputDecoration(),
-                        items: _priceUnits.map((String unit) {
+                        items: PriceUnit.values.map((var unit) {
                           return DropdownMenuItem<String>(
-                            value: unit,
-                            child: Text(unit),
+                            value: unit.name,
+                            child: Text(unit.displayName),
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
@@ -219,7 +235,7 @@ class _ProductUploadState extends State<ProductUpload> {
                     contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 12.0),
                     alignLabelWithHint: true, // Multi-line에서 hintText가 위로 가게 함
                   ),
-                  maxLines: 5, // 여러 줄 입력 가능
+                  maxLines: 6, // 여러 줄 입력 가능
                   maxLength: 2000, // 최대 글자 수 제한 및 카운터 표시
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -316,37 +332,6 @@ class _ProductUploadState extends State<ProductUpload> {
       child: Text(
         title,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  // 상품 상태 라디오 버튼 위젯 빌더
-  Widget _buildConditionRadio(ItemCondition condition, String title) {
-    return InkWell( // Row 전체를 탭 가능하게
-      onTap: () {
-        setState(() {
-          _selectedCondition = condition;
-        });
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-          Radio<ItemCondition>(
-            value: condition,
-            groupValue: _selectedCondition,
-            onChanged: (ItemCondition? value) {
-              if (value != null) {
-                setState(() {
-                  _selectedCondition = value;
-                });
-              }
-            },
-            visualDensity: VisualDensity.compact, // 라디오 버튼 크기 줄임
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // 탭 영역 줄임
-          ),
-          // const SizedBox(width: 4), // 라디오 버튼과 텍스트 사이 간격 제거 또는 조절
-        ],
       ),
     );
   }
@@ -467,7 +452,7 @@ class _ProductUploadState extends State<ProductUpload> {
   }
 
   // 폼 제출 함수
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) { // 폼 유효성 검사
       // 유효성 검사 통과 시 로직 실행
       if (_images.isEmpty) {
@@ -488,7 +473,7 @@ class _ProductUploadState extends State<ProductUpload> {
       final deposit = _depositController.text; // 빈 문자열이면 null 처리
       final imageFiles = _images.map((xfile) => File(xfile.path)).toList(); // API 전송을 위해 File 객체 리스트로 변환
 
-      // TODO: 수집된 데이터와 이미지 파일(imageFiles)을 서버 API로 전송하는 로직 구현
+      
       print('--- 폼 제출 데이터 ---');
       print('제목: $title');
       print('카테고리: $category');
@@ -501,11 +486,74 @@ class _ProductUploadState extends State<ProductUpload> {
         print('이미지 경로: ${img.path}');
       }
 
-      // 예시: 성공 메시지 표시 및 이전 화면으로 이동
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('상품이 등록되었습니다.')),
-      );
-      // Navigator.pop(context); // 등록 후 이전 화면으로 돌아가기
+      List<MultipartFile> multipartImageList = [];
+      for (var image in imageFiles) {
+        multipartImageList.add(await MultipartFile.fromFile(image.path, filename: image.path.split('/\\').last));
+      }
+
+      var formData = FormData.fromMap({
+        "Title" : title,
+        "Category" : category,
+        "Price" : price,
+        "Unit" : priceUnit,
+        "Description" : description,
+        "Deposit" : deposit,
+        "Images" : multipartImageList,
+      });
+
+      try {
+        var response = await apiClient.client.post(
+          '/Product/upload', 
+          data: formData
+        );
+
+        if (response.statusCode == 200) {
+          // 예시: 성공 메시지 표시 및 이전 화면으로 이동
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('상품이 등록되었습니다.')),
+          );
+          // TODO: 현재 네비게이터를 상세 게시물 화면으로 변경.
+          // Navigator.pop(context); // 등록 후 이전 화면으로 돌아가기
+        } else {
+          // 서버에서 예상치 못한 상태 코드 반환
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('상품 등록 실패')),
+          );
+        }
+
+        
+      } on DioException catch (e) {
+        // Dio 관련 오류 처리
+        String errorMessage = '업로드 오류 발생';
+        if (e.response != null) {
+          // 서버가 오류 응답을 반환한 경우
+          print('서버 오류 응답: ${e.response?.data}');
+          print('서버 오류 상태 코드: ${e.response?.statusCode}');
+          if (e.response?.statusCode == 401) {
+            errorMessage = '로그인 상태에 문제가 발생하였습니다.\n다시 로그인 해 주세요.';
+            apiClient.clearCookie();
+          } else {
+            errorMessage = '서버 오류 (${e.response?.statusCode})';
+          }
+        } else if (e.type == DioExceptionType.connectionTimeout ||
+                   e.type == DioExceptionType.sendTimeout ||
+                   e.type == DioExceptionType.receiveTimeout) {
+          errorMessage = '네트워크 타임아웃 발생';
+        } else if (e.type == DioExceptionType.connectionError) {
+           errorMessage = '네트워크 연결 오류 발생';
+        }
+         else {
+          // 기타 Dio 오류 (요청 설정 오류 등)
+          errorMessage = '네트워크 요청 중 오류 발생: ${e.message}';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+      
+
+      
     } else {
       // 유효성 검사 실패 시 메시지 표시
       ScaffoldMessenger.of(context).showSnackBar(
