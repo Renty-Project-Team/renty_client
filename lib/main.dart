@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:renty_client/Example/example_login_page.dart';
 import 'package:renty_client/product_upload.dart';
 import 'package:renty_client/api_client.dart';
 import 'global_theme.dart';
@@ -44,10 +45,15 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // 현재 선택된 인덱스
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index) async {
     if (index == 2) { // 등록 탭 클릭 시
-      Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
-      // 등록 탭은 선택 상태를 바꾸지 않음 (선택적)
+      if (await apiClient.hasTokenCookieLocally()) { // 로컬에 토큰 쿠키가 있는지 확인
+        Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
+      }
+      else {
+        // TODO: 진짜 로그인 화면으로 변경할 것.
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ExampleLoginPage()));
+      }
     } else {
       setState(() { // 상태 변경 및 UI 갱신 요청
         _currentIndex = index;

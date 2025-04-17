@@ -17,6 +17,9 @@ class ApiClient {
 
   bool _isInitialized = false;
 
+  // 도메인
+  static const String domain = "https://deciding-silkworm-set.ngrok-free.app"; // 예: http://localhost:5000/api
+
   // 내부 생성자
   ApiClient._internal();
 
@@ -26,7 +29,7 @@ class ApiClient {
 
     // Dio 인스턴스 생성 및 기본 옵션 설정
     final options = BaseOptions(
-      baseUrl: "https://deciding-silkworm-set.ngrok-free.app/api", // 예: http://localhost:5000/api
+      baseUrl: '$domain/api', // 기본 URL 설정
       connectTimeout: Duration(seconds: 10),
       receiveTimeout: Duration(seconds: 10),
     );
@@ -57,6 +60,28 @@ class ApiClient {
     ));
 
     _isInitialized = true;
+  }
+
+  Future<bool> hasTokenCookieLocally() async {
+    String tokenCookieName = '.Renty.AuthCookie'; // 쿠키 이름 정의
+
+    try {
+      // 서버 URI에 대한 쿠키 목록 로드
+      List<Cookie> cookies = await persistentCookieJar.loadForRequest(Uri.parse(domain));
+
+      // 목록에서 원하는 이름의 쿠키가 있는지 확인
+      bool hasToken = cookies.any((cookie) => cookie.name == tokenCookieName);
+
+      print("Local cookie check for '$tokenCookieName': $hasToken");
+      return hasToken;
+    } catch (e) {
+      print("Error checking local cookies: $e");
+      return false; // 오류 발생 시 없다고 간주
+    }
+  }
+
+  Future<void> clearCookie() async {
+    await persistentCookieJar.delete(Uri.parse(domain)); // 특정 도메인에 대한 쿠키 삭제
   }
 
   // 다른 곳에서 Dio 인스턴스에 접근하기 위한 getter
