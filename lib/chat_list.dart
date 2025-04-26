@@ -5,8 +5,13 @@ import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'dart:math' as math;
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+// 앱의 임시 진입점
+// void main() {
+//   runApp(const ChatList());
+// }
+
+class ChatList extends StatelessWidget {
+  const ChatList({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +33,15 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   String _selectedFilter = '전체';
+  int _currentIndex = 3; // 채팅 탭을 기본으로 선택 (인덱스 3)
 
-  // Sample chat data
+  // 채팅 데이터 샘플
   final List<ChatRoom> _chatRooms = [
     ChatRoom(
       id: '1',
       name: '홍길동',
-      lastMessage: '안녕하세요! 거래 관련해서 문의드립니다.',
+      lastMessage:
+          '안녕하세요! 거래 관련해서 문의드립니다. 안녕하세요! 거래 관련해서 문의드립니다 안녕하세요! 거래 관련해서 문의드립니다',
       lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
       isUnread: true,
       profileImage: 'assets/profile1.png',
@@ -103,6 +110,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ],
         ),
       ),
+      // 하단 메뉴바 추가
+      bottomNavigationBar: BottomMenuBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          // 여기서 탭 전환 로직 구현
+        },
+      ),
     );
   }
 
@@ -136,9 +153,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget _buildChatRoomItem(ChatRoom chatRoom) {
     return CenterRippleEffect(
       onTap: () {
-        // 터치할 때 약간의 진동 피드백 추가
-        HapticFeedback.lightImpact();
-
         setState(() {
           // Mark as read when tapped
           chatRoom.isUnread = false;
@@ -274,31 +288,92 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
-  void _showDeleteConfirmationDialog(ChatRoom chatRoom) {
-    showDialog(
+  Future<bool?> showDeleteChatDialog(BuildContext context, String chatName) {
+    return showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('대화방 삭제'),
-          content: Text('정말 ${chatRoom.name}님과의 대화방을 삭제하시겠습니까?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // 대화상자 닫기
-              },
-              child: const Text('취소'),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 상단 타이틀 (굵게 표시된 텍스트)
+                const Text(
+                  '대화방 삭제',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.left,
+                ),
+                const SizedBox(height: 20),
+
+                // 대화방 삭제 확인 메시지
+                Text(
+                  '정말 ${chatName}님과의 대화방을 삭제하시겠습니까?',
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+                const SizedBox(height: 40),
+
+                // 하단 버튼들
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 취소 버튼
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text(
+                        '취소',
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                      ),
+                    ),
+
+                    // 삭제제하기 버튼 (파란색 버튼)
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4B70FD),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0, // 기본 그림자 제거
+                        shadowColor: Colors.transparent, // 그림자 색상 투명하게
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text(
+                        '삭제하기',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // 대화상자 닫기
-                _deleteChatRoom(chatRoom); // 채팅방 삭제 실행
-              },
-              child: const Text('확인', style: TextStyle(color: Colors.red)),
-            ),
-          ],
+          ),
         );
       },
     );
+  }
+
+  void _showDeleteConfirmationDialog(ChatRoom chatRoom) {
+    showDeleteChatDialog(context, chatRoom.name).then((confirmed) {
+      if (confirmed == true) {
+        _deleteChatRoom(chatRoom); // 채팅방 삭제 실행
+      }
+    });
   }
 
   void _deleteChatRoom(ChatRoom chatRoom) {

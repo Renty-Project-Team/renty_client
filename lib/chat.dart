@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키지
 import 'dart:async'; // Timer 사용을 위한 추가
 
+// // 앱의 임시 진입점
+// void main() {
+//   runApp(const Chating());
+// }
+
 // 앱의 루트 위젯
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Chating extends StatelessWidget {
+  const Chating({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +145,6 @@ class _ChatScreenState extends State<ChatScreen>
   // 테스트용 초기 메시지 추가
   void _addInitialMessages() {
     final messages = [
-      "안녕하세요! 상품을 빌리려합니다!",
       "안녕하세요! 상품에 관심을 가져주셔서 감사합니다.",
       "실제 사진과 상품 상태가 동일한가요?",
       "네, 사진에서 보이는 그대로입니다. 상태도 매우 좋습니다.",
@@ -148,7 +153,7 @@ class _ChatScreenState extends State<ChatScreen>
       "네 딱 적당한 것 같습니다!",
       "참고로 이 상품은 정품이고 정품 인증서도 있습니다.",
       "인증서도 함께 주시나요? 그리고 상품 사용 기간이 얼마나 되나요?",
-      "네, 인증서서도 드리고 약 3개월 정도 사용했습니다.",
+      "네, 인증서도 드리고 약 3개월 정도 사용했습니다.",
       "넵, 알겠습니다!",
     ];
 
@@ -479,6 +484,10 @@ class _ChatScreenState extends State<ChatScreen>
     String priceUnit = _product.priceUnit;
     String deposit = _product.deposit;
 
+    // 유효성 검사 상태 변수
+    bool isPriceValid = price.isNotEmpty;
+    bool isDepositValid = deposit.isNotEmpty;
+
     // 드롭다운 아이템 목록
     final List<String> priceUnits = ['일', '주', '월', '년'];
 
@@ -489,6 +498,11 @@ class _ChatScreenState extends State<ChatScreen>
     final TextEditingController depositController = TextEditingController(
       text: deposit,
     );
+
+    // 입력값 유효성 검증 함수
+    bool isFormValid() {
+      return isPriceValid && isDepositValid;
+    }
 
     showDialog(
       context: context,
@@ -616,10 +630,13 @@ class _ChatScreenState extends State<ChatScreen>
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  decoration: const BoxDecoration(
+                                  decoration: BoxDecoration(
                                     border: Border(
                                       bottom: BorderSide(
-                                        color: Color(0xFFE2E2E2),
+                                        color:
+                                            isPriceValid
+                                                ? const Color(0xFFE2E2E2)
+                                                : Colors.red,
                                         width: 1,
                                       ),
                                     ),
@@ -632,9 +649,18 @@ class _ChatScreenState extends State<ChatScreen>
                                         child: TextField(
                                           controller: priceController,
                                           keyboardType: TextInputType.number,
+                                          // 숫자만 입력되도록 필터 추가
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
                                           textAlign: TextAlign.right,
                                           onChanged: (value) {
                                             price = value;
+                                            // 유효성 검사 상태 업데이트
+                                            setDialogState(() {
+                                              isPriceValid = value.isNotEmpty;
+                                            });
                                           },
                                           decoration: const InputDecoration(
                                             border: InputBorder.none,
@@ -655,6 +681,18 @@ class _ChatScreenState extends State<ChatScreen>
                               ),
                             ],
                           ),
+                          // 가격 오류 메시지
+                          if (!isPriceValid)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text(
+                                '가격을 입력해주세요',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -683,10 +721,13 @@ class _ChatScreenState extends State<ChatScreen>
                           const SizedBox(height: 20), // 간격 증가
                           Container(
                             padding: const EdgeInsets.only(bottom: 8),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(
                                 bottom: BorderSide(
-                                  color: Color(0xFFE2E2E2),
+                                  color:
+                                      isDepositValid
+                                          ? const Color(0xFFE2E2E2)
+                                          : Colors.red,
                                   width: 1,
                                 ),
                               ),
@@ -698,9 +739,17 @@ class _ChatScreenState extends State<ChatScreen>
                                   child: TextField(
                                     controller: depositController,
                                     keyboardType: TextInputType.number,
+                                    // 숫자만 입력되도록 필터 추가
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
                                     textAlign: TextAlign.right,
                                     onChanged: (value) {
                                       deposit = value;
+                                      // 유효성 검사 상태 업데이트
+                                      setDialogState(() {
+                                        isDepositValid = value.isNotEmpty;
+                                      });
                                     },
                                     decoration: const InputDecoration(
                                       border: InputBorder.none,
@@ -715,6 +764,18 @@ class _ChatScreenState extends State<ChatScreen>
                               ],
                             ),
                           ),
+                          // 보증금 오류 메시지
+                          if (!isDepositValid)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text(
+                                '보증금을 입력해주세요',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -750,44 +811,54 @@ class _ChatScreenState extends State<ChatScreen>
                           const SizedBox(width: 10), // 간격 증가
                           // 수정하기 버튼 - 그림자 제거
                           ElevatedButton(
-                            onPressed: () {
-                              // 상품 정보 업데이트 후, 부모 위젯 상태 갱신을 위해 setState 호출
-                              Navigator.of(context).pop(); // 먼저 모달 닫기
+                            onPressed:
+                                isFormValid()
+                                    ? () {
+                                      // 상품 정보 업데이트 후, 부모 위젯 상태 갱신을 위해 setState 호출
+                                      Navigator.of(context).pop(); // 먼저 모달 닫기
 
-                              setState(() {
-                                _product = Product(
-                                  title: title,
-                                  price: price,
-                                  priceUnit: priceUnit,
-                                  deposit: deposit,
-                                );
+                                      setState(() {
+                                        _product = Product(
+                                          title: title,
+                                          price: price,
+                                          priceUnit: priceUnit,
+                                          deposit: deposit,
+                                        );
 
-                                // 상품 수정 완료 메시지 추가
-                                _messages.add(
-                                  ChatMessage(
-                                    text:
-                                        "상품 정보를 수정했습니다.\n상품명: $title\n가격: $price원/$priceUnit\n보증금: $deposit원",
-                                    isMe: true,
-                                    timestamp: DateTime.now(),
-                                  ),
-                                );
-                              });
+                                        // 상품 수정 완료 메시지 추가
+                                        _messages.add(
+                                          ChatMessage(
+                                            text:
+                                                "상품 정보를 수정했습니다.\n가격 : $priceUnit $price원\n보증금 : $deposit원",
+                                            isMe: true,
+                                            timestamp: DateTime.now(),
+                                          ),
+                                        );
+                                      });
 
-                              // 스크롤을 맨 아래로 이동
-                              Future.delayed(
-                                const Duration(milliseconds: 100),
-                                () {
-                                  _scrollController.animateTo(
-                                    _scrollController.position.maxScrollExtent,
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeOut,
-                                  );
-                                },
-                              );
-                            },
+                                      // 스크롤을 맨 아래로 이동
+                                      Future.delayed(
+                                        const Duration(milliseconds: 100),
+                                        () {
+                                          _scrollController.animateTo(
+                                            _scrollController
+                                                .position
+                                                .maxScrollExtent,
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            curve: Curves.easeOut,
+                                          );
+                                        },
+                                      );
+                                    }
+                                    : null, // 유효하지 않으면 버튼 비활성화
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF3154FF),
                               foregroundColor: Colors.white,
+                              // 비활성화된 버튼의 스타일
+                              disabledBackgroundColor: Colors.grey[300],
+                              disabledForegroundColor: Colors.grey[600],
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 10,
