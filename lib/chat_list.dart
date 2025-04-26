@@ -5,10 +5,6 @@ import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'dart:math' as math;
 
-void main() {
-  runApp(const MyApp());
-}
-
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
