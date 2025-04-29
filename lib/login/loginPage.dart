@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'signUp/signUpData.dart';
-import 'signUp/signUpLev1.dart';
-import 'main.dart';
+import '../signUp/signUpData.dart';
+import '../signUp/signUpLev1.dart';
+import '../main.dart';
 
 class CustomLoginScreen extends StatefulWidget {
   const CustomLoginScreen({super.key});
@@ -46,6 +46,10 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
             _statusMessage = '로그인 성공!';
             // 로그인 성공 후 다음 화면으로 이동하거나 상태 업데이트
             // 예: Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+            Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => MainPage())
+            );
             print('로그인 성공 데이터: ${response.data}'); // 서버 응답 데이터 확인
           });
           // 로그인 성공 후 쿠키가 잘 저장되었는지 확인 (디버깅용)
@@ -97,9 +101,7 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
+    return SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -196,10 +198,6 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
                       child: TextButton(
                         onPressed: () async{
                           await _login();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => MainPage())
-                          );
                         },
                         child: Text('빌려봄 로그인', style: TextStyle(color: Colors.white)),
                       )
@@ -283,7 +281,6 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 }

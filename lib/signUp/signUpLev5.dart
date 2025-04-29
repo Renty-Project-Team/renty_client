@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/signUp/signUpData.dart';
-import 'package:renty_client/login.dart';
+import 'package:renty_client/login/login.dart';
 import 'package:dio/dio.dart';
 import 'package:renty_client/main.dart';
 
@@ -52,8 +52,10 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
         if (response.statusCode == 200) {
           setState(() {
             _statusMessage = '로그인 성공!';
-            // 로그인 성공 후 다음 화면으로 이동하거나 상태 업데이트
-            // 예: Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => LoginPage()),
+            );
             print('로그인 성공 데이터: ${response.data}'); // 서버 응답 데이터 확인
           });
           // 로그인 성공 후 쿠키가 잘 저장되었는지 확인 (디버깅용)
@@ -71,11 +73,15 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
           // 서버가 오류 응답을 반환한 경우
           print('서버 오류 응답: ${e.response?.data}');
           print('서버 오류 상태 코드: ${e.response?.statusCode}');
-          if (e.response?.statusCode == 401) {
-            errorMessage = '이메일 또는 비밀번호가 잘못되었습니다.';
+          if(e.response?.statusCode == 400){
+             errorMessage = '이미 가입된 이메일 입니다.';
+            _buildField('이메일', emailController, validator: (value) {
+              if (e.response?.statusCode == 400) return '이름을 입력해주세요';
+            });
           } else {
             errorMessage = '서버 오류 (${e.response?.statusCode})';
           }
+
         } else if (e.type == DioExceptionType.connectionTimeout ||
             e.type == DioExceptionType.sendTimeout ||
             e.type == DioExceptionType.receiveTimeout) {
@@ -199,11 +205,6 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
                         );
 
                         await _login(); // 로딩 중 비활성화
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => LoginPage()),
-                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(

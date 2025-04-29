@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:renty_client/Example/example_login_page.dart';
+import 'package:renty_client/login/login.dart';
 import 'package:renty_client/product_upload.dart';
 import 'package:renty_client/api_client.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
+import 'mainBoard.dart';
+import 'search.dart';
 
 
 final ApiClient apiClient = ApiClient();
@@ -30,6 +32,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
+        '/search': (context) => const SearchPage(),
       },
     );
   }
@@ -46,13 +49,16 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // 현재 선택된 인덱스
 
   void _onItemTapped(int index) async {
+    if (index == 1){
+      Navigator.pushNamed(context, '/search');
+    }
     if (index == 2) { // 등록 탭 클릭 시
       if (await apiClient.hasTokenCookieLocally()) { // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
       }
       else {
         // TODO: 진짜 로그인 화면으로 변경할 것.
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const ExampleLoginPage()));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
       }
     } else {
       setState(() { // 상태 변경 및 UI 갱신 요청
@@ -66,7 +72,7 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       appBar: LogoAppBar(),
       body: Center(
-        child: Text("홈 화면"),
+        child: ProductListPage(),
       ),
       bottomNavigationBar: BottomMenuBar(currentIndex: _currentIndex, onTap: _onItemTapped),
     );

@@ -19,7 +19,7 @@ class SignupEmailPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(height: 60),
-              Text('${signupData.name} 사용할 이메일을 입력해주세요', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              Text('${signupData.name}님이 사용할 이메일을 입력해주세요', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               TextField(
                 controller: emailController,

@@ -140,8 +140,8 @@ class ProductListPage extends StatelessWidget {
     // 광고 포함해서 실제로 표시될 전체 항목 수 계산
     final totalItemCount = products.length + (products.length ~/ 4);
 
-    return Scaffold(
-      body: ListView.builder(
+    return Container(
+      child: ListView.builder(
         itemCount: totalItemCount,
         itemBuilder: (context, index) {
           // 4번째마다 광고
