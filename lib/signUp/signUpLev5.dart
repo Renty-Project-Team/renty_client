@@ -74,10 +74,8 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
           print('서버 오류 응답: ${e.response?.data}');
           print('서버 오류 상태 코드: ${e.response?.statusCode}');
           if(e.response?.statusCode == 400){
-             errorMessage = '이미 가입된 이메일 입니다.';
-            _buildField('이메일', emailController, validator: (value) {
-              if (e.response?.statusCode == 400) return '이름을 입력해주세요';
-            });
+             final String? errorMessage = e.response?.statusCode.toString();
+             emailCheaker(errorMessage);
           } else {
             errorMessage = '서버 오류 (${e.response?.statusCode})';
           }
@@ -109,6 +107,13 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
     }
   }
 
+  String? emailCheaker(String? value) {
+    print('emailCheaker에서 받는 값${value}');
+    if (value == null || value.isEmpty) return '이메일을 입력해주세요';
+    if (!value.contains('@')) return '올바른 이메일 형식을 입력해주세요';
+    if (value=='400') return '중복된 이메일 입나다';
+    return null;
+  }
 
   @override
   void initState() {
@@ -175,11 +180,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
                   if (value == null || value.isEmpty) return '이름을 입력해주세요';
                   return null;
                 }),
-                _buildField('이메일', emailController, validator: (value) {
-                  if (value == null || value.isEmpty) return '이메일을 입력해주세요';
-                  if (!value.contains('@')) return '올바른 이메일 형식을 입력해주세요';
-                  return null;
-                }),
+                _buildField('이메일', emailController, validator: emailCheaker ),
                 _buildField('비밀번호', passwordController, obscure: true, validator: (value) {
                   if (value == null || value.length < 6) return '비밀번호는 최소 6자 이상이어야 해요';
                   return null;
