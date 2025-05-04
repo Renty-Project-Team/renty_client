@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'api_client.dart'; // ApiClient import 추가
 
 // 채팅방 생성 응답을 처리하는 모델 클래스
 class ChatRoomResponse {
@@ -18,7 +19,7 @@ class ChatRoomResponse {
 
   factory ChatRoomResponse.fromJson(Map<String, dynamic> json) {
     return ChatRoomResponse(
-      message: json['message'] as String,
+      message: json['message'] as String? ?? '응답 메시지가 없습니다.',
       status: json['status'] as String? ?? '',
       isSuccess: json['status'] == 'created' || json['status'] == 'exists',
       chatRoomId: json['chatRoomId'] as int?, // 채팅방 ID (있을 경우)
@@ -28,45 +29,59 @@ class ChatRoomResponse {
 
 // 채팅 관련 API 호출을 담당하는 서비스 클래스
 class ChatService {
-  // API 서버 URL - 실제로는 환경 설정에서 가져오는 것이 좋습니다
-  final String baseUrl = 'http://localhost:8080/api';
-  
-  // 인증 토큰 (실제로는 상태 관리 라이브러리나 보안 저장소에서 가져와야 함)
-  String? authToken = 'test_token';
-  
+  // ApiClient 인스턴스
+  final ApiClient _apiClient = ApiClient();
+
   // 채팅방 생성 API 호출 함수
   Future<ChatRoomResponse> createChatRoom(int itemId) async {
     try {
-      final url = Uri.parse('$baseUrl/chat/Create');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $authToken', // 인증 토큰
-        },
-        body: jsonEncode({
+      // ApiClient를 통한 요청
+      final response = await _apiClient.client.post(
+        '/chat/Create',
+        data: {
           'itemId': itemId, // 상품 ID만 필요
-        }),
+        },
       );
-      
-      final responseData = jsonDecode(response.body);
-      
+
+      // 성공 응답 (상태 코드 200)
       if (response.statusCode == 200) {
-        // 성공 응답 (채팅방 생성 성공 또는 이미 존재하는 경우)
-        return ChatRoomResponse.fromJson(responseData);
+        return ChatRoomResponse.fromJson(response.data);
       } else {
-        // 실패 응답 (400 Bad Request 등)
+        // 기타 상태 코드의 응답 처리
         return ChatRoomResponse(
-          message: responseData['message'] ?? '채팅방을 생성할 수 없습니다.',
+          message: response.data['message'] ?? '채팅방을 생성할 수 없습니다.',
           status: 'error',
           isSuccess: false,
         );
       }
-    } catch (e) {
-      // 네트워크 오류 등 예외 발생
+    } on DioException catch (e) {
+      // Dio 관련 오류 처리
+      String errorMessage = '채팅방 생성 오류 발생';
+
+      if (e.response != null) {
+        // 서버가 오류 응답을 반환한 경우
+        errorMessage =
+            e.response?.data['message'] ?? '서버 오류 (${e.response?.statusCode})';
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        errorMessage = '네트워크 타임아웃 발생';
+      } else if (e.type == DioExceptionType.connectionError) {
+        errorMessage = '네트워크 연결 오류 발생';
+      } else {
+        // 기타 Dio 오류
+        errorMessage = '네트워크 요청 중 오류 발생: ${e.message}';
+      }
+
       return ChatRoomResponse(
-        message: '서버 연결 오류: $e',
+        message: errorMessage,
+        status: 'error',
+        isSuccess: false,
+      );
+    } catch (e) {
+      // Dio 외의 예기치 않은 오류
+      return ChatRoomResponse(
+        message: '알 수 없는 오류 발생: $e',
         status: 'error',
         isSuccess: false,
       );

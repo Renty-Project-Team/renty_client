@@ -9,11 +9,6 @@ import 'dart:math' as math;
 import 'chat_room.dart'; // ChatRoom 모델 임포트
 import 'chat.dart'; // ChatScreen이 있는 파일 임포트
 
-// 앱의 임시 진입점
-void main() {
-  runApp(const ChatList());
-}
-
 class ChatList extends StatelessWidget {
   const ChatList({Key? key}) : super(key: key);
 

@@ -142,7 +142,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   void _navigateToChatList() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => const ChatListScreen(), // 채팅 목록 화면으로 이동
+        builder: (context) => const ChatList(), // 채팅 목록 화면으로 이동
       ),
     );
   }

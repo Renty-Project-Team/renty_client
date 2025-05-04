@@ -3,11 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키지
 import 'dart:async'; // Timer 사용을 위한 추가
 
-// 앱의 임시 진입점
-void main() {
-  runApp(const Chating());
-}
-
 // 앱의 루트 위젯
 class Chating extends StatelessWidget {
   const Chating({super.key});
