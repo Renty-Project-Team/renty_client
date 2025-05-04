@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키지
 import 'dart:async'; // Timer 사용을 위한 추가
 
-// // 앱의 임시 진입점
-// void main() {
-//   runApp(const Chating());
-// }
+// 앱의 임시 진입점
+void main() {
+  runApp(const Chating());
+}
 
 // 앱의 루트 위젯
 class Chating extends StatelessWidget {
@@ -29,7 +29,10 @@ class Chating extends StatelessWidget {
         // 스캐폴드 배경색 설정
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const ChatScreen(), // 앱 시작 시 표시할 첫 화면
+      home: const ChatScreen(
+        chatRoomId: 0,
+        roomName: "테스트계정",
+      ), // 앱 시작 시 표시할 첫 화면 (테스트용 기본값)
       debugShowCheckedModeBanner: false, // 디버그 배너 숨기기
     );
   }
@@ -79,7 +82,20 @@ class SearchResult {
 
 // 채팅 화면 위젯 (상태 관리 필요)
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final int chatRoomId; // 채팅방 ID
+  final String roomName; // 채팅방 이름(상대방 이름)
+  final String? profileImageUrl; // 상대방 프로필 이미지 URL
+  final Product? product; // 상품 정보 (선택적)
+  final bool isBuyer; // 구매자 여부 추가 (true: 구매자, false: 판매자)
+
+  const ChatScreen({
+    super.key,
+    required this.chatRoomId,
+    required this.roomName,
+    this.profileImageUrl,
+    this.product,
+    this.isBuyer = true, // 기본값은 구매자로 설정
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -95,12 +111,7 @@ class _ChatScreenState extends State<ChatScreen>
       ScrollController(); // 스크롤 위치 제어용 컨트롤러
 
   // 상품 정보 관리 변수
-  Product _product = Product(
-    title: "예제 상품 입니다",
-    price: "2000",
-    priceUnit: "일",
-    deposit: "5000",
-  );
+  late Product _product;
 
   // 검색 기능 관련 변수
   bool _isSearchMode = false; // 검색 모드 여부
@@ -138,38 +149,17 @@ class _ChatScreenState extends State<ChatScreen>
       end: 1.0,
     ).animate(_fadeAnimController!);
 
-    // 초기 메시지 몇 개 추가 (테스트용)
-    _addInitialMessages();
-  }
+    // 위젯에서 전달받은 상품 정보가 있으면 사용, 없으면 기본값 사용
+    _product =
+        widget.product ??
+        Product(
+          title: "예제 상품 입니다",
+          price: "2000",
+          priceUnit: "일",
+          deposit: "5000",
+        );
 
-  // 테스트용 초기 메시지 추가
-  void _addInitialMessages() {
-    final messages = [
-      "안녕하세요! 상품에 관심을 가져주셔서 감사합니다.",
-      "실제 사진과 상품 상태가 동일한가요?",
-      "네, 사진에서 보이는 그대로입니다. 상태도 매우 좋습니다.",
-      "옹 좋네요!",
-      "가격은 괜찮으신가요?",
-      "네 딱 적당한 것 같습니다!",
-      "참고로 이 상품은 정품이고 정품 인증서도 있습니다.",
-      "인증서도 함께 주시나요? 그리고 상품 사용 기간이 얼마나 되나요?",
-      "네, 인증서도 드리고 약 3개월 정도 사용했습니다.",
-      "넵, 알겠습니다!",
-    ];
-
-    final now = DateTime.now();
-
-    // 현재 시간을 기준으로 메시지 타임스탬프 설정 (과거 순서로)
-    for (int i = 0; i < messages.length; i++) {
-      final isMe = i % 2 == 0; // 홀수 인덱스는 사용자 메시지
-      final timestamp = now.subtract(
-        Duration(minutes: (messages.length - i) * 2),
-      );
-
-      _messages.add(
-        ChatMessage(text: messages[i], isMe: isMe, timestamp: timestamp),
-      );
-    }
+    // 예시 메시지 삭제 - 기존 _addInitialMessages() 호출 제거
   }
 
   @override
@@ -1112,16 +1102,25 @@ class _ChatScreenState extends State<ChatScreen>
           // 프로필 아바타
           CircleAvatar(
             backgroundColor: Colors.grey[300],
-            child: Text(
-              "T", // 상대방 이니셜
-              style: TextStyle(color: Colors.grey[700]),
-            ),
+            backgroundImage:
+                widget.profileImageUrl != null
+                    ? NetworkImage(widget.profileImageUrl!)
+                    : null,
+            child:
+                widget.profileImageUrl == null
+                    ? Text(
+                      widget.roomName.isNotEmpty
+                          ? widget.roomName[0]
+                          : "?", // 상대방 이니셜
+                      style: TextStyle(color: Colors.grey[700]),
+                    )
+                    : null,
           ),
           const SizedBox(width: 10), // 간격
           // 상대방 이름
-          const Text(
-            "테스트계정",
-            style: TextStyle(color: Colors.black, fontSize: 16),
+          Text(
+            widget.roomName,
+            style: const TextStyle(color: Colors.black, fontSize: 16),
           ),
         ],
       ),
@@ -1141,7 +1140,7 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 
-  // 상품 정보 UI 구성 함수 (중고거래 채팅에서 사용)
+  // 상품 정보 UI 함수 수정 - 구매자/판매자에 따라 버튼 다르게 표시
   Widget _buildProductInfo() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1182,9 +1181,10 @@ class _ChatScreenState extends State<ChatScreen>
               ],
             ),
           ),
-          // 상품 수정 버튼 - 색상 변경
+          // 사용자 역할에 따라 다른 버튼 표시
           TextButton(
-            onPressed: _showProductEditModal, // 상품 수정 모달 표시
+            onPressed:
+                widget.isBuyer ? null : _showProductEditModal, // 판매자만 상품 수정 가능
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFF3154FF), // #3154FF로 변경
               foregroundColor: Colors.white, // 버튼 텍스트 색상
@@ -1193,7 +1193,7 @@ class _ChatScreenState extends State<ChatScreen>
               ),
               fixedSize: const Size(90, 30), // 버튼 크기 고정
             ),
-            child: const Text('상품수정'),
+            child: Text(widget.isBuyer ? '구매하기' : '상품수정'),
           ),
         ],
       ),
@@ -1322,7 +1322,9 @@ class _ChatScreenState extends State<ChatScreen>
               backgroundColor: Colors.grey[300],
               radius: 15, // 작은 크기로 설정
               child: Text(
-                "T", // 상대방 이니셜
+                widget.roomName.isNotEmpty
+                    ? widget.roomName[0]
+                    : "?", // 상대방 이니셜
                 style: TextStyle(color: Colors.grey[700], fontSize: 12),
               ),
             ),

@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'dart:math' as math;
+import 'chat_room.dart'; // ChatRoom 모델 임포트
+import 'chat.dart'; // ChatScreen이 있는 파일 임포트
 
 // 앱의 임시 진입점
-// void main() {
-//   runApp(const ChatList());
-// }
+void main() {
+  runApp(const ChatList());
+}
 
 class ChatList extends StatelessWidget {
   const ChatList({Key? key}) : super(key: key);
@@ -24,6 +28,28 @@ class ChatList extends StatelessWidget {
   }
 }
 
+// 읽음/안읽음 상태를 처리하기 위한 ChatRoom 확장
+extension ChatRoomExtension on ChatRoom {
+  // 마지막 메시지 시간이 24시간 이내인지 확인하여 읽지 않은 것으로 간주
+  bool get isUnread {
+    return DateTime.now().difference(lastAt).inHours < 24;
+  }
+
+  // 읽음 상태를 변경하는 메소드는 ChatRoom이 불변(final) 객체이므로 새 객체를 반환
+  ChatRoom markAsRead() {
+    // 채팅방을 읽음 처리 로직은 실제로는 서버와 동기화가 필요
+    // 여기서는 구현을 위해 시간을 48시간 전으로 설정하여 읽음 상태로 표시
+    return ChatRoom(
+      chatRoomId: chatRoomId,
+      roomName: roomName,
+      profileImageUrl: profileImageUrl,
+      message: message,
+      messageType: messageType,
+      lastAt: DateTime.now().subtract(const Duration(hours: 48)),
+    );
+  }
+}
+
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
 
@@ -35,34 +61,53 @@ class _ChatListScreenState extends State<ChatListScreen> {
   String _selectedFilter = '전체';
   int _currentIndex = 3; // 채팅 탭을 기본으로 선택 (인덱스 3)
 
-  // 채팅 데이터 샘플
-  final List<ChatRoom> _chatRooms = [
-    ChatRoom(
-      id: '1',
-      name: '홍길동',
-      lastMessage:
-          '안녕하세요! 거래 관련해서 문의드립니다. 안녕하세요! 거래 관련해서 문의드립니다 안녕하세요! 거래 관련해서 문의드립니다',
-      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
-      isUnread: true,
-      profileImage: 'assets/profile1.png',
-    ),
-    ChatRoom(
-      id: '2',
-      name: '김철수',
-      lastMessage: '견적서 확인 부탁드립니다. 내일까지 검토해주시면 감사하겠습니다.',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
-      isUnread: false,
-      profileImage: 'assets/profile2.png',
-    ),
-    ChatRoom(
-      id: '3',
-      name: '이영희',
-      lastMessage: '주문한 제품 배송 현황을 알 수 있을까요?',
-      lastMessageTime: DateTime.now().subtract(const Duration(days: 1)),
-      isUnread: true,
-      profileImage: 'assets/profile3.png',
-    ),
-  ];
+  // API URL 상수
+  final String apiUrl = 'http://localhost:8080/api/chat/RoomList';
+
+  // 채팅 데이터 상태
+  List<ChatRoom> _chatRooms = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // 앱 시작시 채팅방 목록 불러오기
+    _fetchChatRooms();
+  }
+
+  // API에서 채팅방 목록 가져오기
+  Future<void> _fetchChatRooms() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> roomsData = data['rooms'];
+
+        setState(() {
+          _chatRooms =
+              roomsData.map((room) => ChatRoom.fromJson(room)).toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = '서버 오류가 발생했습니다 (${response.statusCode})';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = '데이터를 불러오는 중 오류가 발생했습니다: $e';
+        _isLoading = false;
+      });
+    }
+  }
 
   List<ChatRoom> get _filteredChatRooms {
     if (_selectedFilter == '읽음') {
@@ -97,15 +142,41 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ),
             ),
 
-            // Chat List
+            // Chat List with Loading/Error states
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredChatRooms.length,
-                itemBuilder: (context, index) {
-                  final chatRoom = _filteredChatRooms[index];
-                  return _buildChatRoomItem(chatRoom);
-                },
-              ),
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _errorMessage != null
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.red),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _fetchChatRooms,
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
+                        ),
+                      )
+                      : _filteredChatRooms.isEmpty
+                      ? const Center(child: Text('채팅방이 없습니다.'))
+                      : RefreshIndicator(
+                        onRefresh: _fetchChatRooms,
+                        child: ListView.builder(
+                          itemCount: _filteredChatRooms.length,
+                          itemBuilder: (context, index) {
+                            final chatRoom = _filteredChatRooms[index];
+                            return _buildChatRoomItem(chatRoom);
+                          },
+                        ),
+                      ),
             ),
           ],
         ),
@@ -153,13 +224,40 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget _buildChatRoomItem(ChatRoom chatRoom) {
     return CenterRippleEffect(
       onTap: () {
+        // 기존 ChatRoom 객체가 불변이므로, 새 객체 리스트를 생성하여 상태 업데이트
         setState(() {
-          // Mark as read when tapped
-          chatRoom.isUnread = false;
+          final index = _chatRooms.indexWhere(
+            (room) => room.chatRoomId == chatRoom.chatRoomId,
+          );
+          if (index != -1) {
+            final updatedRoom = chatRoom.markAsRead();
+            _chatRooms =
+                List.from(_chatRooms)
+                  ..removeAt(index)
+                  ..insert(index, updatedRoom);
+          }
         });
 
-        // In a real app, you'd navigate to the chat detail screen here
-        print('Navigate to chat with ${chatRoom.name}');
+        // 채팅 화면으로 이동
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ChatScreen(
+                  chatRoomId: chatRoom.chatRoomId,
+                  roomName: chatRoom.roomName,
+                  profileImageUrl: chatRoom.profileImageUrl,
+                  // 상품 정보가 필요한 경우 Product 객체 생성
+                  // 예시: ChatRoom 모델에 상품 정보가 포함되어 있다고 가정하면:
+                  // product: chatRoom.productInfo != null ? Product(
+                  //   title: chatRoom.productInfo!.title,
+                  //   price: chatRoom.productInfo!.price.toString(),
+                  //   priceUnit: chatRoom.productInfo!.priceUnit,
+                  //   deposit: chatRoom.productInfo!.deposit.toString(),
+                  // ) : null,
+                ),
+          ),
+        );
       },
       onLongPress: () {
         _showChatRoomOptions(chatRoom);
@@ -177,7 +275,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: Theme.of(context).primaryColor,
-                  child: const Icon(Icons.person, color: Colors.white),
+                  backgroundImage:
+                      chatRoom.profileImageUrl != null
+                          ? NetworkImage(chatRoom.profileImageUrl!)
+                          : null,
+                  child:
+                      chatRoom.profileImageUrl == null
+                          ? const Icon(Icons.person, color: Colors.white)
+                          : null,
                 ),
                 // Red dot unread indicator
                 if (chatRoom.isUnread)
@@ -207,7 +312,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   Row(
                     children: [
                       Text(
-                        chatRoom.name,
+                        chatRoom.roomName,
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.black,
@@ -216,7 +321,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _formatTime(chatRoom.lastMessageTime),
+                        _formatTime(chatRoom.lastAt),
                         style: TextStyle(fontSize: 12, color: Colors.black),
                       ),
                     ],
@@ -225,7 +330,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
                   // Last message
                   Text(
-                    chatRoom.lastMessage,
+                    chatRoom.message ?? '새로운 채팅방이 생성되었습니다.',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.black,
@@ -264,7 +369,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   // 알림 끄기 기능 구현
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${chatRoom.name}의 알림이 꺼졌습니다.')),
+                    SnackBar(content: Text('${chatRoom.roomName}의 알림이 꺼졌습니다.')),
                   );
                 },
               ),
@@ -369,7 +474,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   void _showDeleteConfirmationDialog(ChatRoom chatRoom) {
-    showDeleteChatDialog(context, chatRoom.name).then((confirmed) {
+    showDeleteChatDialog(context, chatRoom.roomName).then((confirmed) {
       if (confirmed == true) {
         _deleteChatRoom(chatRoom); // 채팅방 삭제 실행
       }
@@ -378,12 +483,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   void _deleteChatRoom(ChatRoom chatRoom) {
     setState(() {
-      _chatRooms.removeWhere((room) => room.id == chatRoom.id);
+      _chatRooms.removeWhere((room) => room.chatRoomId == chatRoom.chatRoomId);
     });
 
     // 삭제 완료 메시지 표시
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${chatRoom.name}님과의 대화방이 삭제되었습니다.')),
+      SnackBar(content: Text('${chatRoom.roomName}님과의 대화방이 삭제되었습니다.')),
     );
   }
 
@@ -524,23 +629,4 @@ class CircleRipplePainter extends CustomPainter {
   bool shouldRepaint(covariant CircleRipplePainter oldDelegate) {
     return oldDelegate.progress != progress || oldDelegate.color != color;
   }
-}
-
-// Chat room model
-class ChatRoom {
-  final String id;
-  final String name;
-  final String lastMessage;
-  final DateTime lastMessageTime;
-  bool isUnread;
-  final String profileImage;
-
-  ChatRoom({
-    required this.id,
-    required this.name,
-    required this.lastMessage,
-    required this.lastMessageTime,
-    required this.isUnread,
-    required this.profileImage,
-  });
 }
