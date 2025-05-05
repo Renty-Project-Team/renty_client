@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:renty_client/main.dart';
+import 'package:renty_client/api_client.dart';
 
 class ExampleLoginPage extends StatefulWidget {
   const ExampleLoginPage({super.key});

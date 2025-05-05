@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 
 class LogoAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const LogoAppBar({super.key});
+  final bool showBackButton;
+  const LogoAppBar({super.key, this.showBackButton = true}); // 기본값 true
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +24,7 @@ class LogoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       // --- 레이아웃 및 요소 배치 ---
-      leading: null, // 왼쪽에 기본 뒤로가기/메뉴 버튼 표시 안 함
-      leadingWidth: 0, // leading 영역 사용 안 함
+      automaticallyImplyLeading: showBackButton,
       title: logoWidget, // 로고를 title 영역에 배치
       centerTitle: false, // title을 왼쪽 정렬 (기본값은 플랫폼 따라 다름)
       titleSpacing: NavigationToolbar.kMiddleSpacing, // 제목과 좌우 요소 간 간격 (기본값 사용 또는 조절)
