@@ -5,7 +5,7 @@ import 'package:renty_client/api_client.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
-
+import 'chat_list.dart'; // ChatList import 추가
 
 final ApiClient apiClient = ApiClient();
 
@@ -30,6 +30,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
+        '/chat_list': (context) => const ChatList(), // 채팅 목록 경로 추가
       },
     );
   }
@@ -46,16 +47,24 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // 현재 선택된 인덱스
 
   void _onItemTapped(int index) async {
-    if (index == 2) { // 등록 탭 클릭 시
-      if (await apiClient.hasTokenCookieLocally()) { // 로컬에 토큰 쿠키가 있는지 확인
+    if (index == 2) {
+      // 등록 탭 클릭 시
+      if (await apiClient.hasTokenCookieLocally()) {
+        // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
-      }
-      else {
+      } else {
         // TODO: 진짜 로그인 화면으로 변경할 것.
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const ExampleLoginPage()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ExampleLoginPage()),
+        );
       }
+    } else if (index == 3) {
+      // 채팅 탭 클릭 시 (인덱스 3번이 채팅 탭이라고 가정)
+      Navigator.pushNamed(context, '/chat_list'); // 채팅 목록 화면으로 이동
     } else {
-      setState(() { // 상태 변경 및 UI 갱신 요청
+      setState(() {
+        // 상태 변경 및 UI 갱신 요청
         _currentIndex = index;
       });
     }
@@ -65,11 +74,11 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: LogoAppBar(),
-      body: Center(
-        child: Text("홈 화면"),
+      body: Center(child: Text("홈 화면")),
+      bottomNavigationBar: BottomMenuBar(
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
       ),
-      bottomNavigationBar: BottomMenuBar(currentIndex: _currentIndex, onTap: _onItemTapped),
     );
   }
 }
-

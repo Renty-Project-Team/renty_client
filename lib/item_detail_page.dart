@@ -4,6 +4,7 @@ import 'chat.dart'; // 기존 채팅 화면
 import 'chat_list.dart'; // 채팅 목록 화면 import 추가
 
 void main() {
+  // 임시 main 함수 추가
   runApp(const ItemDetailApp());
 }
 
@@ -12,12 +13,12 @@ class ItemDetailApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // MaterialApp을 다시 추가합니다
     return MaterialApp(
       title: '상품 상세 페이지',
       theme: ThemeData(
-        primaryColor: const Color(0xFF3154FF),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3154FF)),
-        scaffoldBackgroundColor: Colors.white,
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: const ItemDetailPage(),
       debugShowCheckedModeBanner: false,

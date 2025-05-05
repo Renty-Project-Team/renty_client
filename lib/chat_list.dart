@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
@@ -8,56 +7,21 @@ import 'logo_app_ber.dart';
 import 'dart:math' as math;
 import 'chat_room.dart'; // ChatRoom 모델 임포트
 import 'chat.dart'; // ChatScreen이 있는 파일 임포트
+import 'api_client.dart'; // ApiClient 추가
 
-class ChatList extends StatelessWidget {
+class ChatList extends StatefulWidget {
   const ChatList({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '빌려봄 채팅 목록',
-      theme: buildAppTheme(),
-      home: const ChatListScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
+  State<ChatList> createState() => _ChatListState();
 }
 
-// 읽음/안읽음 상태를 처리하기 위한 ChatRoom 확장
-extension ChatRoomExtension on ChatRoom {
-  // 마지막 메시지 시간이 24시간 이내인지 확인하여 읽지 않은 것으로 간주
-  bool get isUnread {
-    return DateTime.now().difference(lastAt).inHours < 24;
-  }
-
-  // 읽음 상태를 변경하는 메소드는 ChatRoom이 불변(final) 객체이므로 새 객체를 반환
-  ChatRoom markAsRead() {
-    // 채팅방을 읽음 처리 로직은 실제로는 서버와 동기화가 필요
-    // 여기서는 구현을 위해 시간을 48시간 전으로 설정하여 읽음 상태로 표시
-    return ChatRoom(
-      chatRoomId: chatRoomId,
-      roomName: roomName,
-      profileImageUrl: profileImageUrl,
-      message: message,
-      messageType: messageType,
-      lastAt: DateTime.now().subtract(const Duration(hours: 48)),
-    );
-  }
-}
-
-class ChatListScreen extends StatefulWidget {
-  const ChatListScreen({Key? key}) : super(key: key);
-
-  @override
-  State<ChatListScreen> createState() => _ChatListScreenState();
-}
-
-class _ChatListScreenState extends State<ChatListScreen> {
+class _ChatListState extends State<ChatList> {
   String _selectedFilter = '전체';
   int _currentIndex = 3; // 채팅 탭을 기본으로 선택 (인덱스 3)
 
-  // API URL 상수
-  final String apiUrl = 'http://localhost:8080/api/chat/RoomList';
+  // ApiClient 인스턴스 추가
+  final ApiClient _apiClient = ApiClient();
 
   // 채팅 데이터 상태
   List<ChatRoom> _chatRooms = [];
@@ -67,11 +31,24 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   void initState() {
     super.initState();
-    // 앱 시작시 채팅방 목록 불러오기
-    _fetchChatRooms();
+    // ApiClient 초기화 후 채팅방 목록 불러오기
+    _initApiClient();
   }
 
-  // API에서 채팅방 목록 가져오기
+  // ApiClient 초기화 함수 추가
+  Future<void> _initApiClient() async {
+    try {
+      await _apiClient.initialize();
+      _fetchChatRooms();
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'API 클라이언트 초기화 오류: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // API에서 채팅방 목록 가져오기 함수 수정
   Future<void> _fetchChatRooms() async {
     try {
       setState(() {
@@ -79,10 +56,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
         _errorMessage = null;
       });
 
-      final response = await http.get(Uri.parse(apiUrl));
+      // http 대신 ApiClient 사용
+      final response = await _apiClient.client.get('/chat/RoomList');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
+        final Map<String, dynamic> data = response.data; // Dio는 자동으로 JSON 파싱
         final List<dynamic> roomsData = data['rooms'];
 
         setState(() {
@@ -500,6 +478,28 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } else {
       return '${time.month}월 ${time.day}일';
     }
+  }
+}
+
+// 읽음/안읽음 상태를 처리하기 위한 ChatRoom 확장
+extension ChatRoomExtension on ChatRoom {
+  // 마지막 메시지 시간이 24시간 이내인지 확인하여 읽지 않은 것으로 간주
+  bool get isUnread {
+    return DateTime.now().difference(lastAt).inHours < 24;
+  }
+
+  // 읽음 상태를 변경하는 메소드는 ChatRoom이 불변(final) 객체이므로 새 객체를 반환
+  ChatRoom markAsRead() {
+    // 채팅방을 읽음 처리 로직은 실제로는 서버와 동기화가 필요
+    // 여기서는 구현을 위해 시간을 48시간 전으로 설정하여 읽음 상태로 표시
+    return ChatRoom(
+      chatRoomId: chatRoomId,
+      roomName: roomName,
+      profileImageUrl: profileImageUrl,
+      message: message,
+      messageType: messageType,
+      lastAt: DateTime.now().subtract(const Duration(hours: 48)),
+    );
   }
 }
 

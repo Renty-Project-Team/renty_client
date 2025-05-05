@@ -4,31 +4,23 @@ import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키
 import 'dart:async'; // Timer 사용을 위한 추가
 
 // 앱의 루트 위젯
-class Chating extends StatelessWidget {
+class Chating extends StatefulWidget {
   const Chating({super.key});
 
   @override
+  State<Chating> createState() => _ChatingState();
+}
+
+class _ChatingState extends State<Chating> {
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '채팅 기능', // 앱 이름
-      theme: ThemeData(
-        primaryColor: const Color(0xFF3154FF), // 파란색을 #3154FF로 변경
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3154FF)),
-        fontFamily: 'NotoSansKR', // 앱 전체에 적용할 기본 폰트
-        // 앱바 테마 설정
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.black),
-        ),
-        // 스캐폴드 배경색 설정
-        scaffoldBackgroundColor: Colors.white,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('채팅'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
       ),
-      home: const ChatScreen(
-        chatRoomId: 0,
-        roomName: "테스트계정",
-      ), // 앱 시작 시 표시할 첫 화면 (테스트용 기본값)
-      debugShowCheckedModeBanner: false, // 디버그 배너 숨기기
+      body: const ChatScreen(chatRoomId: 0, roomName: "테스트계정"),
     );
   }
 }
