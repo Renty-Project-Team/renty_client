@@ -22,6 +22,10 @@ class ApiClient {
   static const String domain = "https://deciding-silkworm-set.ngrok-free.app"; 
   // static const String domain = "http://localhost:8088"; 
 
+  String get getDomain {
+    return domain; // 도메인 반환
+  }
+
   // 내부 생성자
   ApiClient._internal();
 

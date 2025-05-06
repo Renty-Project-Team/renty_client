@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:renty_client/main.dart';
 import 'AdBoard.dart';
 import '../detailed_post/detailPost.dart';
 import 'postService.dart';
@@ -84,7 +85,7 @@ class ProductCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network( //이미지 중앙 기준으로 설정된 해상도로 잘라서 보여줌
-                    'https://deciding-silkworm-set.ngrok-free.app${product.imageUrl}',
+                    '${apiClient.getDomain}${product.imageUrl}',
                     width: 90,
                     height: 90,
                     fit: BoxFit.cover,
