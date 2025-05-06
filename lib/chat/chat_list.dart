@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'global_theme.dart';
-import 'bottom_menu_bar.dart';
-import 'logo_app_ber.dart';
+import '../global_theme.dart';
+import '../bottom_menu_bar.dart';
+import '../logo_app_ber.dart';
 import 'dart:math' as math;
 import 'chat_room.dart';
 import 'chat.dart';
-import 'api_client.dart';
+import '../api_client.dart';
 import 'package:dio/dio.dart'; // DioException 사용을 위한 import
-import 'login/login.dart'; // 로그인 페이지 import 추가
+import '../login/login.dart'; // 로그인 페이지 import 추가
 
 class ChatList extends StatefulWidget {
   const ChatList({Key? key}) : super(key: key);
@@ -136,29 +136,28 @@ class _ChatListState extends State<ChatList> {
     }
   }
 
-  // 채팅방 읽음 표시를 서버에 저장하는 함수
+  // 채팅방 읽음 표시를 서버에 저장하는 함수 수정
   Future<void> _markChatAsRead(int chatRoomId) async {
     try {
-      // 서버 API 호출
+      // 서버 API 호출 - 경로 수정
       await _apiClient.client.post(
-        '/chat/MarkAsRead',
+        '/chat/markAsRead', // 수정: 대소문자와 경로 확인
         data: {'chatRoomId': chatRoomId},
       );
 
       print('채팅방 $chatRoomId 읽음 처리 완료 (서버 저장)');
-
       // 성공 후 목록 새로고침
       _fetchChatRooms();
     } catch (e) {
       print('채팅방 읽음 처리 실패: $e');
-      // 오류 발생 시에도 UI상 읽음 표시는 유지
+      // 실패해도 UI 업데이트는 진행
       setState(() {
-        final index = _chatRooms.indexWhere(
-          (room) => room.chatRoomId == chatRoomId,
-        );
-        if (index != -1) {
-          final updatedRoom = _chatRooms[index].markAsRead();
-          _chatRooms[index] = updatedRoom;
+        // 해당 채팅방만 로컬에서 읽음 처리
+        for (int i = 0; i < _chatRooms.length; i++) {
+          if (_chatRooms[i].chatRoomId == chatRoomId) {
+            _chatRooms[i] = _chatRooms[i].markAsRead();
+            break;
+          }
         }
       });
     }
@@ -621,7 +620,7 @@ extension ChatRoomExtension on ChatRoom {
       message: message,
       messageType: messageType,
       lastAt: lastAt, // 원래 시간 그대로 유지
-      unreadCount: 1, // 읽음 처리 - unreadCount를 0으로 설정
+      unreadCount: 0, // 읽음 처리 - unreadCount를 0으로 설정
     );
   }
 }
