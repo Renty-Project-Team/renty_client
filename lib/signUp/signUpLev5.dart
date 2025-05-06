@@ -41,7 +41,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
           data: {
             // !!! 중요: 서버가 요구하는 필드명으로 정확히 변경하세요 !!!
             'name': nameController.text,
-            'nickname': nickNameController.text,
+            'username': nickNameController.text,
             'email': emailController.text,
             'password': passwordController.text,
             'phoneNumber': phoneController.text,

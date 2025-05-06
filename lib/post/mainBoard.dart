@@ -1,35 +1,59 @@
 import 'package:flutter/material.dart';
 import 'AdBoard.dart';
-import 'detailed_post/detailPost.dart';
-import 'detailed_post/productDataFile.dart';
+import '../detailed_post/detailPost.dart';
+import 'postService.dart';
+import 'postDataFile.dart';
 
-class ProductListPage extends StatelessWidget {
+class ProductListPage extends StatefulWidget {
+  @override
+  State<ProductListPage> createState() => _ProductListPageState();
+}
 
+class _ProductListPageState extends State<ProductListPage> {
+  late Future<List<Product>> _productsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _productsFuture = PostService().fetchProducts(); // API 호출
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 광고 포함해서 실제로 표시될 전체 항목 수 계산
-    final totalItemCount = products.length + (products.length ~/ 4);
+    return FutureBuilder<List<Product>>(
+      future: _productsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('에러: ${snapshot.error}'));
+        }
 
-    return Container(
-      child: ListView.builder(
-        itemCount: totalItemCount,
-        itemBuilder: (context, index) {
-          // 4번째마다 광고
-          if (index!=0 && index % 5 == 0) {
-            return AdCard();
-          }
+        final products = snapshot.data!;
+        final totalItemCount = products.length + (products.length ~/ 4);
 
-          // 광고가 들어간 만큼 인덱스 조정
-          final productIndex = index - (index ~/ 5);
-          final product = products[productIndex];
+        return ListView.builder(
+          itemCount: totalItemCount,
+          itemBuilder: (context, index) {
+            if (index != 0 && index % 5 == 0) {
+              return AdCard();
+            }
 
-          return ProductCard(product: product);
-        },
-      ),
+            final productIndex = index - (index ~/ 5);
+            if (productIndex >= products.length) {
+              return SizedBox(); // 인덱스 초과 방지
+            }
+            final product = products[productIndex];
+
+            return ProductCard(product: product);
+          },
+        );
+      },
     );
   }
 }
+
 class ProductCard extends StatelessWidget {
   final Product product;
 
@@ -39,11 +63,11 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
         onTap: () {
-        // 상세 페이지로 이동
+        //상세 페이지로 이동
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => DetailPage(product: product), // 상세 페이지에 Product 전달
+              builder: (context) => DetailPage(itemId: product.id), // 상세 페이지에 Product 전달
             ),
           );
         },
@@ -60,7 +84,7 @@ class ProductCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network( //이미지 중앙 기준으로 설정된 해상도로 잘라서 보여줌
-                    product.imageUrl,
+                    'https://deciding-silkworm-set.ngrok-free.app${product.imageUrl}',
                     width: 90,
                     height: 90,
                     fit: BoxFit.cover,
@@ -92,12 +116,12 @@ class ProductCard extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    "${product.Unit} ${product.price}",
+                    "${product.priceUnit} ${product.price.toInt()}원",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 4),
                   Text(
-                    "보증금: ${product.deposit}",
+                    "보증금: ${product.deposit.toInt()}원",
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                 ],
@@ -118,7 +142,7 @@ class ProductCard extends StatelessWidget {
                   children: [
                     Icon(Icons.favorite_border, size: 14, color: Colors.grey),
                     SizedBox(width: 4),
-                    Text('${product.likes}', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text('${product.wishCount}', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
                 SizedBox(height: 4),
@@ -126,7 +150,7 @@ class ProductCard extends StatelessWidget {
                   children: [
                     Icon(Icons.remove_red_eye, size: 14, color: Colors.grey),
                     SizedBox(width: 4),
-                    Text('${product.views}', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text('${product.viewCount}', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               ],

@@ -1,65 +1,57 @@
-import 'package:flutter/cupertino.dart';
-
 class Product {
-  final String username;
+  final int itemId;
+  final String userName;
+  final String? userProfileImage;
   final String title;
-  final String Category;
-  final String price;
-  final String deposit;
-  final String Description;
-  final String Unit;
-  final int likes;
-  final int views;
-  final String imageUrl;
+  final String createdAt;
+  final double price;
+  final String priceUnit;
+  final double securityDeposit;
+  final int viewCount;
+  final int wishCount;
+  final List<String> categories;
+  final String state;
+  final String description;
+  final List<String> imagesUrl;
 
   Product({
-    required this.username,
+    required this.itemId,
+    required this.userName,
+    this.userProfileImage,
     required this.title,
-    required this.Category,
+    required this.createdAt,
     required this.price,
-    required this.Unit,
-    required this.deposit,
-    required this.Description,
-    required this.likes,
-    required this.views,
-    required this.imageUrl,
+    required this.priceUnit,
+    required this.securityDeposit,
+    required this.viewCount,
+    required this.wishCount,
+    required this.categories,
+    required this.state,
+    required this.description,
+    required this.imagesUrl,
   });
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    const unitMap = {
+      'Month': '월',
+      'Week': '주',
+      'Day': '일',
+    };
+    return Product(
+      itemId: json['itemId'],
+      userName: json['userName'],
+      userProfileImage: json['userProfileImage'],
+      title: json['title'],
+      createdAt: json['createdAt'],
+      price: json['price'],
+      priceUnit: unitMap[json['priceUnit']] ?? json['priceUnit'] ?? '',
+      securityDeposit: json['securityDeposit'],
+      viewCount: json['viewCount'],
+      wishCount: json['wishCount'],
+      categories: List<String>.from(json['categories']),
+      state: json['state'],
+      description: json['description'],
+      imagesUrl: List<String>.from(json['imagesUrl']),
+    );
+  }
 }
-final List<Product> products = [
-  Product(
-    username: "test1",
-    title: "1 상품 입니다",
-    Category: "취미/여가",
-    price: "2,000원",
-    Unit: "일",
-    deposit: "10,000원",
-    Description: "예시 입니다",
-    likes: 404,
-    views: 404,
-    imageUrl: "https://picsum.photos/200",
-  ),
-  Product(
-    username: "test1",
-    title: "2 번째 상품",
-    Category: "취미/여가",
-    price: "3,500원",
-    Unit: "일",
-    deposit: "5,000원",
-    Description: "예시 입니다",
-    likes: 123,
-    views: 987,
-    imageUrl: "https://picsum.photos/201",
-  ),
-  Product(
-    username: "test1",
-    title: "3 번째 상품",
-    Category: "취미/여가",
-    price: "1,800원",
-    Unit: "일",
-    deposit: "12,000원",
-    Description: "예시 입니다",
-    likes: 56,
-    views: 321,
-    imageUrl: "https://picsum.photos/202",
-  ),
-];
