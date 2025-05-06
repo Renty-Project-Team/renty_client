@@ -15,6 +15,7 @@ class SignupConfirmPage extends StatefulWidget {
 
 class _SignupConfirmPageState extends State<SignupConfirmPage> {
   late TextEditingController nameController;
+  late TextEditingController nickNameController;
   late TextEditingController emailController;
   late TextEditingController passwordController;
   late TextEditingController phoneController;
@@ -40,8 +41,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
           data: {
             // !!! 중요: 서버가 요구하는 필드명으로 정확히 변경하세요 !!!
             'name': nameController.text,
-            'nickname': "test1",
-            'accountNumber': "11111",
+            'nickname': nickNameController.text,
             'email': emailController.text,
             'password': passwordController.text,
             'phoneNumber': phoneController.text,
@@ -119,6 +119,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.signupData.name);
+    nickNameController = TextEditingController(text: widget.signupData.userName);
     emailController = TextEditingController(text: widget.signupData.email);
     passwordController = TextEditingController(text: widget.signupData.pw);
     phoneController = TextEditingController(text: widget.signupData.phone);
@@ -127,6 +128,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
   @override
   void dispose() {
     nameController.dispose();
+    nickNameController.dispose();
     emailController.dispose();
     passwordController.dispose();
     phoneController.dispose();
@@ -180,6 +182,10 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
                   if (value == null || value.isEmpty) return '이름을 입력해주세요';
                   return null;
                 }),
+                _buildField('닉네임', nickNameController, validator: (value) {
+                  if (value == null || value.isEmpty) return '닉네임을 입력해주세요';
+                  return null;
+                }),
                 _buildField('이메일', emailController, validator: emailCheaker ),
                 _buildField('비밀번호', passwordController, obscure: true, validator: (value) {
                   if (value == null || value.length < 6) return '비밀번호는 최소 6자 이상이어야 해요';
@@ -200,6 +206,7 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
                       if (_formKey.currentState?.validate() ?? false) {
                         final updatedData = widget.signupData.copyWith(
                           name: nameController.text,
+                          userName: nickNameController.text,
                           email: emailController.text,
                           pw: passwordController.text,
                           phone: phoneController.text,
