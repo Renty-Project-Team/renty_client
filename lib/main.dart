@@ -7,6 +7,8 @@ import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'chat_list.dart';
 import 'item_detail_page.dart'; // 아이템 상세 페이지 import 추가
+import 'post/mainBoard.dart';
+import 'search/search.dart';
 
 final ApiClient apiClient = ApiClient();
 
