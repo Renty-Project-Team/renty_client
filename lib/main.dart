@@ -8,8 +8,6 @@ import 'logo_app_ber.dart';
 import 'post/mainBoard.dart';
 import 'search/search.dart';
 import 'chat/chat_list.dart';
-import 'chat/chat_list.dart';
-import 'chat/chat_list.dart';
 
 final ApiClient apiClient = ApiClient();
 
