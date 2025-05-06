@@ -1,32 +1,11 @@
 import 'package:flutter/material.dart';
-import 'mock_chat_service.dart';
+import 'chat_service.dart';
 import 'chat.dart'; // 기존 채팅 화면
 import 'chat_list.dart'; // 채팅 목록 화면 import 추가
+import 'login/login.dart';
+import 'api_client.dart'; // ApiClient import 추가
 
-void main() {
-  // 임시 main 함수 추가
-  runApp(const ItemDetailApp());
-}
-
-class ItemDetailApp extends StatelessWidget {
-  const ItemDetailApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // MaterialApp을 다시 추가합니다
-    return MaterialApp(
-      title: '상품 상세 페이지',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: const ItemDetailPage(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-// 테스트용 상품 데이터 모델
+// 테스트용 상품 데이터 모델 api
 class ItemData {
   final int id;
   final String title;
@@ -54,7 +33,10 @@ class ItemDetailPage extends StatefulWidget {
 
 class _ItemDetailPageState extends State<ItemDetailPage> {
   // 채팅 서비스 인스턴스
-  final MockChatService _chatService = MockChatService();
+  final ChatService _chatService = ChatService();
+
+  // API 클라이언트 인스턴스
+  final ApiClient apiClient = ApiClient();
 
   // 채팅방 생성 중 로딩 상태
   bool _isCreatingChatRoom = false;
@@ -71,6 +53,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   // 채팅방 생성 함수
   Future<void> _createChatRoom() async {
+    // 디버깅을 위한 로그 추가
+    print("채팅방 생성 시도: 상품 ID = ${_item.id}");
+
+    // 로그인 상태 확인 추가
+    if (!(await apiClient.hasTokenCookieLocally())) {
+      // 로그인되지 않은 경우 로그인 화면으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+      return; // 함수 종료
+    }
+
     // 이미 채팅방 생성 중이면 중복 요청 방지
     if (_isCreatingChatRoom) return;
 
@@ -79,8 +74,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     });
 
     try {
-      // 채팅방 생성 API 호출
-      final response = await _chatService.createChatRoom(_item.id);
+      // context 전달하여 자동 로그인 화면 이동 활성화
+      final response = await _chatService.createChatRoom(_item.id, context);
 
       if (!mounted) return;
 
@@ -111,8 +106,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 ),
           ),
         );
+      } else if (response.needsLogin) {
+        // 이미 서비스에서 로그인 화면으로 이동 시도했으므로
+        // 추가 처리가 필요하면 여기에 작성
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다')));
       } else {
-        // 오류 메시지 표시
+        // 기타 오류 처리
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(response.message),

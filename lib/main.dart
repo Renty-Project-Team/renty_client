@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:renty_client/Example/example_login_page.dart';
+import 'package:renty_client/login/login.dart';
 import 'package:renty_client/product_upload.dart';
 import 'package:renty_client/api_client.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
-import 'chat_list.dart'; // ChatList import 추가
+import 'chat_list.dart';
+import 'item_detail_page.dart'; // 아이템 상세 페이지 import 추가
 
 final ApiClient apiClient = ApiClient();
 
@@ -30,7 +31,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
-        '/chat_list': (context) => const ChatList(), // 채팅 목록 경로 추가
+        '/chat_list': (context) => const ChatList(),
+        '/item_detail': (context) => const ItemDetailPage(), // 상세 페이지 경로 추가
       },
     );
   }
@@ -56,12 +58,22 @@ class _MainPageState extends State<MainPage> {
         // TODO: 진짜 로그인 화면으로 변경할 것.
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const ExampleLoginPage()),
+          MaterialPageRoute(builder: (context) => const LoginPage()),
         );
       }
     } else if (index == 3) {
-      // 채팅 탭 클릭 시 (인덱스 3번이 채팅 탭이라고 가정)
-      Navigator.pushNamed(context, '/chat_list'); // 채팅 목록 화면으로 이동
+      if (await apiClient.hasTokenCookieLocally()) {
+        // 로컬에 토큰 쿠키가 있는지 확인
+        Navigator.pushNamed(context, '/chat_list'); // 채팅 목록 화면으로 이동
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      }
+    } else if (index == 4) {
+      // 상세 페이지 탭 클릭 시
+      Navigator.pushNamed(context, '/item_detail');
     } else {
       setState(() {
         // 상태 변경 및 UI 갱신 요청

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'dart:math' as math;
-import 'chat_room.dart'; // ChatRoom 모델 임포트
-import 'chat.dart'; // ChatScreen이 있는 파일 임포트
-import 'api_client.dart'; // ApiClient 추가
+import 'chat_room.dart';
+import 'chat.dart';
+import 'api_client.dart';
+import 'package:dio/dio.dart'; // DioException 사용을 위한 import
+import 'login/login.dart'; // 로그인 페이지 import 추가
 
 class ChatList extends StatefulWidget {
   const ChatList({Key? key}) : super(key: key);
@@ -31,14 +32,30 @@ class _ChatListState extends State<ChatList> {
   @override
   void initState() {
     super.initState();
-    // ApiClient 초기화 후 채팅방 목록 불러오기
-    _initApiClient();
+    // 로그인 상태 확인 후 채팅방 목록 로드
+    _checkLoginAndLoadChatRooms();
   }
 
-  // ApiClient 초기화 함수 추가
-  Future<void> _initApiClient() async {
+  // 로그인 상태 확인 함수
+  Future<void> _checkLoginAndLoadChatRooms() async {
+    // ApiClient 초기화
     try {
       await _apiClient.initialize();
+
+      // 로그인 상태 확인
+      bool isLoggedIn = await _apiClient.hasTokenCookieLocally();
+
+      if (!isLoggedIn) {
+        if (mounted) {
+          // 로그인 화면으로 이동
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        }
+        return;
+      }
+
+      // 로그인 상태가 유효하면 채팅방 목록 로드
       _fetchChatRooms();
     } catch (e) {
       setState(() {
@@ -60,12 +77,18 @@ class _ChatListState extends State<ChatList> {
       final response = await _apiClient.client.get('/chat/RoomList');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = response.data; // Dio는 자동으로 JSON 파싱
+        final Map<String, dynamic> data = response.data;
         final List<dynamic> roomsData = data['rooms'];
 
+        // ChatRoom 객체 리스트로 변환
+        List<ChatRoom> rooms =
+            roomsData.map((room) => ChatRoom.fromJson(room)).toList();
+
+        // lastAt 기준으로 내림차순 정렬 (최신순으로 정렬)
+        rooms.sort((a, b) => a.lastAt.compareTo(b.lastAt));
+
         setState(() {
-          _chatRooms =
-              roomsData.map((room) => ChatRoom.fromJson(room)).toList();
+          _chatRooms = rooms;
           _isLoading = false;
         });
       } else {
@@ -74,10 +97,69 @@ class _ChatListState extends State<ChatList> {
           _isLoading = false;
         });
       }
+    } on DioException catch (e) {
+      print('채팅 목록 로드 중 오류: ${e.message}, 상태 코드: ${e.response?.statusCode}');
+
+      // 401 오류 처리 (인증 만료)
+      if (e.response?.statusCode == 401) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = '로그인이 필요합니다';
+        });
+
+        // 로그인 화면으로 즉시 이동
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        }
+      }
+      // 503 서버 오류 처리
+      else if (e.response?.statusCode == 503) {
+        setState(() {
+          _errorMessage = '서버가 현재 점검 중입니다. 잠시 후 다시 시도해주세요.';
+          _isLoading = false;
+        });
+      }
+      // 기타 오류
+      else {
+        setState(() {
+          _errorMessage = '데이터를 불러오는 중 오류가 발생했습니다: ${e.message}';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _errorMessage = '데이터를 불러오는 중 오류가 발생했습니다: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  // 채팅방 읽음 표시를 서버에 저장하는 함수
+  Future<void> _markChatAsRead(int chatRoomId) async {
+    try {
+      // 서버 API 호출
+      await _apiClient.client.post(
+        '/chat/MarkAsRead',
+        data: {'chatRoomId': chatRoomId},
+      );
+
+      print('채팅방 $chatRoomId 읽음 처리 완료 (서버 저장)');
+
+      // 성공 후 목록 새로고침
+      _fetchChatRooms();
+    } catch (e) {
+      print('채팅방 읽음 처리 실패: $e');
+      // 오류 발생 시에도 UI상 읽음 표시는 유지
+      setState(() {
+        final index = _chatRooms.indexWhere(
+          (room) => room.chatRoomId == chatRoomId,
+        );
+        if (index != -1) {
+          final updatedRoom = _chatRooms[index].markAsRead();
+          _chatRooms[index] = updatedRoom;
+        }
       });
     }
   }
@@ -154,14 +236,50 @@ class _ChatListState extends State<ChatList> {
           ],
         ),
       ),
-      // 하단 메뉴바 추가
+      // 하단 메뉴바 수정
       bottomNavigationBar: BottomMenuBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
+        onTap: (index) async {
+          // main.dart와 동일한 로직으로 수정
+          if (index == 0) {
+            // 홈 탭
+            if (!mounted) return;
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (route) => false,
+              arguments: {'initialIndex': 0},
+            );
+          } else if (index == 2) {
+            // 등록 탭
+            if (await _apiClient.hasTokenCookieLocally()) {
+              if (!mounted) return;
+              Navigator.pushNamed(context, '/product_upload');
+            } else {
+              if (!mounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            }
+          } else if (index == 3) {
+            // 채팅 탭
+            // 이미 채팅 화면에 있으므로 아무 작업도 하지 않음
+            // 또는 채팅 목록 새로고침
+            if (index == _currentIndex) {
+              _fetchChatRooms();
+            }
+          } else {
+            setState(() {
+              // 상태 변경 및 UI 갱신 요청
+              _currentIndex = index;
+            });
+          }
+
+          // 현재 인덱스 업데이트 (실제로는 다른 화면으로 이동하므로 의미가 없음)
           setState(() {
             _currentIndex = index;
           });
-          // 여기서 탭 전환 로직 구현
         },
       ),
     );
@@ -196,23 +314,14 @@ class _ChatListState extends State<ChatList> {
 
   Widget _buildChatRoomItem(ChatRoom chatRoom) {
     return CenterRippleEffect(
-      onTap: () {
-        // 기존 ChatRoom 객체가 불변이므로, 새 객체 리스트를 생성하여 상태 업데이트
-        setState(() {
-          final index = _chatRooms.indexWhere(
-            (room) => room.chatRoomId == chatRoom.chatRoomId,
-          );
-          if (index != -1) {
-            final updatedRoom = chatRoom.markAsRead();
-            _chatRooms =
-                List.from(_chatRooms)
-                  ..removeAt(index)
-                  ..insert(index, updatedRoom);
-          }
-        });
+      onTap: () async {
+        // 읽음 표시를 서버에 저장
+        await _markChatAsRead(chatRoom.chatRoomId);
 
         // 채팅 화면으로 이동
-        Navigator.push(
+        if (!mounted) return;
+
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder:
@@ -220,17 +329,14 @@ class _ChatListState extends State<ChatList> {
                   chatRoomId: chatRoom.chatRoomId,
                   roomName: chatRoom.roomName,
                   profileImageUrl: chatRoom.profileImageUrl,
-                  // 상품 정보가 필요한 경우 Product 객체 생성
-                  // 예시: ChatRoom 모델에 상품 정보가 포함되어 있다고 가정하면:
-                  // product: chatRoom.productInfo != null ? Product(
-                  //   title: chatRoom.productInfo!.title,
-                  //   price: chatRoom.productInfo!.price.toString(),
-                  //   priceUnit: chatRoom.productInfo!.priceUnit,
-                  //   deposit: chatRoom.productInfo!.deposit.toString(),
-                  // ) : null,
                 ),
           ),
         );
+
+        // 채팅 화면에서 돌아왔을 때 목록 새로고침
+        if (mounted) {
+          _fetchChatRooms(); // 새로운 메시지가 있을 수 있으므로 목록 갱신
+        }
       },
       onLongPress: () {
         _showChatRoomOptions(chatRoom);
@@ -469,36 +575,53 @@ class _ChatListState extends State<ChatList> {
     final now = DateTime.now();
     final difference = now.difference(time);
 
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}분 전';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}시간 전';
-    } else if (difference.inDays < 30) {
+    // 날짜가 같은 경우 시간만 표시 (오전/오후 포함)
+    if (time.year == now.year &&
+        time.month == now.month &&
+        time.day == now.day) {
+      final hour = time.hour > 12 ? time.hour - 12 : time.hour;
+      final amPm = time.hour >= 12 ? '오후' : '오전';
+      final minute = time.minute.toString().padLeft(2, '0');
+      return '$amPm ${hour == 0 ? 12 : hour}:$minute';
+    }
+    // 어제인 경우
+    else if (time.year == now.year &&
+        time.month == now.month &&
+        time.day == now.day - 1) {
+      return '어제';
+    }
+    // 일주일 이내
+    else if (difference.inDays < 7) {
       return '${difference.inDays}일 전';
-    } else {
+    }
+    // 올해 이내
+    else if (time.year == now.year) {
       return '${time.month}월 ${time.day}일';
+    }
+    // 작년 이전
+    else {
+      return '${time.year}.${time.month}.${time.day}';
     }
   }
 }
 
 // 읽음/안읽음 상태를 처리하기 위한 ChatRoom 확장
 extension ChatRoomExtension on ChatRoom {
-  // 마지막 메시지 시간이 24시간 이내인지 확인하여 읽지 않은 것으로 간주
+  // 서버에서 받은 unreadCount를 기준으로 읽지 않은 메시지 여부 확인
   bool get isUnread {
-    return DateTime.now().difference(lastAt).inHours < 24;
+    return (unreadCount ?? 0) > 0;
   }
 
-  // 읽음 상태를 변경하는 메소드는 ChatRoom이 불변(final) 객체이므로 새 객체를 반환
+  // 읽음 상태를 변경하는 메소드 - 시간은 변경하지 않음!
   ChatRoom markAsRead() {
-    // 채팅방을 읽음 처리 로직은 실제로는 서버와 동기화가 필요
-    // 여기서는 구현을 위해 시간을 48시간 전으로 설정하여 읽음 상태로 표시
     return ChatRoom(
       chatRoomId: chatRoomId,
       roomName: roomName,
       profileImageUrl: profileImageUrl,
       message: message,
       messageType: messageType,
-      lastAt: DateTime.now().subtract(const Duration(hours: 48)),
+      lastAt: lastAt, // 원래 시간 그대로 유지
+      unreadCount: 1, // 읽음 처리 - unreadCount를 0으로 설정
     );
   }
 }
