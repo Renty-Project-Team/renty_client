@@ -3,6 +3,7 @@ import 'package:renty_client/signUp/signUpData.dart';
 import 'package:renty_client/login/login.dart';
 import 'package:dio/dio.dart';
 import 'package:renty_client/main.dart';
+import 'package:renty_client/custom_dialogs/custom_dialogs.dart';
 
 class SignupConfirmPage extends StatefulWidget {
   final SignupData signupData;
@@ -93,15 +94,13 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
         if (response.statusCode == 200) {
           setState(() {
             _statusMessage = '회원가입 성공!';
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => LoginPage()),
-            );
           });
+          await showSuccessDialog(context, '회원가입이 성공적으로 완료되었습니다.');
         } else {
           setState(() {
             _statusMessage = '회원가입 실패: 서버 응답 코드 ${response.statusCode}';
           });
+          await showErrorDialog(context, _statusMessage);
         }
       } on DioException catch (e) {
         String errorMessage = '회원가입 오류 발생';
@@ -142,10 +141,12 @@ class _SignupConfirmPageState extends State<SignupConfirmPage> {
         setState(() {
           _statusMessage = errorMessage;
         });
+        await showErrorDialog(context, _statusMessage);
       } catch (e) {
         setState(() {
           _statusMessage = '알 수 없는 오류 발생: $e';
         });
+        await showErrorDialog(context, _statusMessage);
       } finally {
         setState(() {
           _isLoading = false;

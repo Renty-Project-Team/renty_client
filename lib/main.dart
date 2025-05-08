@@ -7,6 +7,7 @@ import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'post/mainBoard.dart';
 import 'search/search.dart';
+import 'mypage/logoutTest.dart';
 
 
 final ApiClient apiClient = ApiClient();
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
         '/search': (context) => const SearchPage(),
+        '/my': (context) => const LogoutScreen(),
       },
     );
   }
@@ -50,9 +52,9 @@ class _MainPageState extends State<MainPage> {
 
   void _onItemTapped(int index) async {
     if (index == 1){
-      Navigator.pushNamed(context, '/search');
+      Navigator.pushNamed(context, '/search'); // 돌아올 때까지 대기
     }
-    if (index == 2) { // 등록 탭 클릭 시
+    else if (index == 2) { // 등록 탭 클릭 시
       if (await apiClient.hasTokenCookieLocally()) { // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
       }
@@ -60,7 +62,9 @@ class _MainPageState extends State<MainPage> {
         // TODO: 진짜 로그인 화면으로 변경할 것.
         Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
       }
-    } else {
+    }else if(index == 4){
+      Navigator.pushNamed(context, '/my');
+    }else {
       setState(() { // 상태 변경 및 UI 갱신 요청
         _currentIndex = index;
       });

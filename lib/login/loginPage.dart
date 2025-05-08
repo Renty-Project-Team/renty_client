@@ -46,9 +46,10 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
             _statusMessage = '로그인 성공!';
             // 로그인 성공 후 다음 화면으로 이동하거나 상태 업데이트
             // 예: Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
-            Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => MainPage())
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => MainPage()),
+                  (route) => false, // 모든 기존 route 제거
             );
             print('로그인 성공 데이터: ${response.data}'); // 서버 응답 데이터 확인
           });
@@ -181,30 +182,32 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (_formKey.currentState!.validate()) {
-                          // 로그인 로직 실행
-                          print('이메일: ${_emailController.text}');
-                          print('비밀번호: ${_passwordController.text}');
+                          await _login();
                         }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: Colors.black,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: TextButton(
-                        onPressed: () async{
-                          await _login();
-                        },
-                        child: Text('빌려봄 로그인', style: TextStyle(color: Colors.white)),
-                      )
+                      child: Text('빌려봄 로그인', style: TextStyle(color: Colors.white)),
                     ),
                   ),
                   SizedBox(height: 24),
+                  if (_statusMessage.isNotEmpty)
+                    Text(
+                      _statusMessage,
+                      style: TextStyle(
+                        color: _statusMessage.contains('성공') ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
 
+                  SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(child: Divider(thickness: 1)),

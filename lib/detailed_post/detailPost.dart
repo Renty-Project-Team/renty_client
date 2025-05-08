@@ -102,7 +102,10 @@ class DetailPage extends StatelessWidget {
                         // 카테고리, 상태
                         Row(
                           children: [
-                            Text("카테고리: ${product.categories}", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              "카테고리: ${product.categories.isNotEmpty ? product.categories.first : '없음'}",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ],
                         ),
                         SizedBox(height: 8),
