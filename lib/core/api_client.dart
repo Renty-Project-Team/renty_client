@@ -1,16 +1,13 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter/foundation.dart';
 import 'package:dio/io.dart';
+import 'package:renty_client/core/auth_interceptor.dart';
+
 
 
 // 앱 전체에서 공유할 수 있도록 Dio 인스턴스를 설정 (예: 싱글톤 또는 DI 사용)
 class ApiClient {
   late Dio dio;
-  late PersistCookieJar persistentCookieJar;
 
   // 싱글톤 패턴을 위한 인스턴스
   static final ApiClient _instance = ApiClient._internal();
@@ -28,7 +25,7 @@ class ApiClient {
 
   // 내부 생성자
   ApiClient._internal();
-
+  
   // 비동기 초기화 메서드
   Future<void> initialize() async {
     if (_isInitialized) return; // 이미 초기화되었다면 반환
@@ -42,22 +39,8 @@ class ApiClient {
 
     dio = Dio(options);
 
-    if (!kIsWeb) {
-      // 영구 쿠키 저장 경로 설정
-      Directory appDocDir = await getApplicationDocumentsDirectory();
-      String appDocPath = appDocDir.path;
-      final cookiePath = '$appDocPath/.cookies/'; // 숨김 폴더 사용 권장
-
-      // PersistCookieJar 생성 (파일 저장소 사용)
-      persistentCookieJar = PersistCookieJar(
-        ignoreExpires: false, // 만료된 쿠키는 저장/전송하지 않음 (중요!)
-        storage: FileStorage(cookiePath),
-      );
-
-      // CookieManager 인터셉터 추가
-      dio.interceptors.add(CookieManager(persistentCookieJar));
-    }
-
+    dio.interceptors.add(AuthInterceptor());
+   
     // 로깅 인터셉터 추가 (개발 시 유용)
     dio.interceptors.add(LogInterceptor(
       requestBody: true,
@@ -86,28 +69,6 @@ class ApiClient {
     _isInitialized = true;
   }
 
-  Future<bool> hasTokenCookieLocally() async {
-    String tokenCookieName = '.Renty.AuthCookie'; // 쿠키 이름 정의
-
-    try {
-      // 서버 URI에 대한 쿠키 목록 로드
-      List<Cookie> cookies = await persistentCookieJar.loadForRequest(Uri.parse(domain));
-
-      // 목록에서 원하는 이름의 쿠키가 있는지 확인
-      bool hasToken = cookies.any((cookie) => cookie.name == tokenCookieName);
-
-      print("Local cookie check for '$tokenCookieName': $hasToken");
-      return hasToken;
-    } catch (e) {
-      print("Error checking local cookies: $e");
-      return false; // 오류 발생 시 없다고 간주
-    }
-  }
-
-  Future<void> clearCookie() async {
-    await persistentCookieJar.delete(Uri.parse(domain)); // 특정 도메인에 대한 쿠키 삭제
-  }
-
   // 다른 곳에서 Dio 인스턴스에 접근하기 위한 getter
   Dio get client {
     if (!_isInitialized) {
@@ -116,4 +77,3 @@ class ApiClient {
     return dio;
   }
 }
-

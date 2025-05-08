@@ -1,6 +1,6 @@
 import 'productDataFile.dart';
 import 'package:dio/dio.dart';
-import 'package:renty_client/api_client.dart'; // ApiClient 가져오기
+import 'package:renty_client/core/api_client.dart'; // ApiClient 가져오기
 
 class ProductService {
   Future<Product> fetchProduct(int itemId) async {
