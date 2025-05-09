@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:renty_client/detailed_post/detailPost.dart';
 import 'package:renty_client/main.dart';
 
 enum ItemCondition { used, new_ }
@@ -508,12 +509,17 @@ class _ProductUploadState extends State<ProductUpload> {
         );
 
         if (response.statusCode == 200) {
+          Map<String, dynamic> jsonData = response.data;
           // 예시: 성공 메시지 표시 및 이전 화면으로 이동
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('상품이 등록되었습니다.')),
           );
           // TODO: 현재 네비게이터를 상세 게시물 화면으로 변경.
           // Navigator.pop(context); // 등록 후 이전 화면으로 돌아가기
+          Navigator.pushReplacement(context, MaterialPageRoute(
+              builder: (context) => DetailPage(itemId: jsonData["itemId"]), // 상세 페이지에 Product 전달
+            ),
+          );
         } else {
           // 서버에서 예상치 못한 상태 코드 반환
            ScaffoldMessenger.of(context).showSnackBar(
