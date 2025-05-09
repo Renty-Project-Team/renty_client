@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:renty_client/main.dart';
 import 'productService.dart';
 import 'productDataFile.dart';
 
@@ -41,7 +42,7 @@ class DetailPage extends StatelessWidget {
                     child: PageView.builder(
                       itemCount: product.imagesUrl.length,
                       itemBuilder: (context, index) {
-                        final imageUrl = 'https://deciding-silkworm-set.ngrok-free.app${product.imagesUrl[index]}';
+                        final imageUrl = '${apiClient.getDomain}${product.imagesUrl[index]}';
                         return Image.network(imageUrl, fit: BoxFit.cover);
                       },
                     ),

@@ -531,7 +531,6 @@ class _ProductUploadState extends State<ProductUpload> {
           print('서버 오류 상태 코드: ${e.response?.statusCode}');
           if (e.response?.statusCode == 401) {
             errorMessage = '로그인 상태에 문제가 발생하였습니다.\n다시 로그인 해 주세요.';
-            apiClient.clearCookie();
           }
           else if (e.response?.statusCode == 400) {
             errorMessage = '${e.response?.data['errors']}';

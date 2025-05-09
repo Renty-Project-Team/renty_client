@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:renty_client/core/token_manager.dart';
 import '../signUp/signUpData.dart';
 import '../signUp/signUpLev1.dart';
 import '../main.dart';
@@ -42,6 +43,9 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
         print("test");
         // 성공 (예: 상태 코드 200)
         if (response.statusCode == 200) {
+          Map<String, dynamic> jsonData = response.data;
+          final String accessToken = jsonData['token'];
+          await TokenManager.saveToken(accessToken);
           setState(() {
             _statusMessage = '로그인 성공!';
             // 로그인 성공 후 다음 화면으로 이동하거나 상태 업데이트
