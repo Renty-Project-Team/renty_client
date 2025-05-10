@@ -1,5 +1,5 @@
 import 'postDataFile.dart';
-import 'package:renty_client/api_client.dart';
+import 'package:renty_client/core/api_client.dart';
 import 'dart:convert';
 
 class PostService {
