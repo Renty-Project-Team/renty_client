@@ -216,6 +216,7 @@ class _DetailPageState extends State<DetailPage> {
               ),
             ),
             bottomNavigationBar: BottomAppBar(
+              color: Theme.of(context).scaffoldBackgroundColor,
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(

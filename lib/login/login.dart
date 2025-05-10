@@ -9,9 +9,14 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-          child: CustomLoginScreen()
+      appBar: AppBar(
+        leading: BackButton(
+          onPressed: () {
+            Navigator.of(context).pop(); // 이전 화면으로 돌아가기
+          },
+        ),
       ),
+      body: CustomLoginScreen(),
     );
   }
 }
