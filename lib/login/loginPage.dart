@@ -100,7 +100,7 @@ class _CustomLoginScreenState extends State<CustomLoginScreen> {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     double screenWidth = constraints.maxWidth;
-                    double dynamicFontSize = screenWidth * 0.45;
+                    double dynamicFontSize = screenWidth * 0.25;
 
                     return Text(
                       'ㅂㄹㅂ',
