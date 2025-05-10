@@ -4,7 +4,6 @@ import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart'; // 로컬 스토리지 사용
 import '../core/api_client.dart'; // API 클라이언트 추가
-import '../chat/chat_message_storage.dart';
 import '../chat/signalr_service.dart'; // SignalR 서비스 추가
 
 // 앱의 루트 위젯
@@ -206,14 +205,8 @@ class _ChatScreenState extends State<ChatScreen>
       await _apiClient.initialize();
       // 저장된 마지막 읽은 시간 불러오기
       await _loadLastReadAt();
-      // 메시지 로드
-      final messageStorage = ChatMessageStorage();
-      List<ChatMessage> messages = await messageStorage.loadMessages(
-        widget.chatRoomId,
-      );
-      setState(() {
-        _messages = messages;
-      });
+      // 메시지 로드 (ChatMessageStorage 사용 대신 API에서 직접 로드)
+      await _loadMessages();
     } catch (e) {
       print('API 초기화 또는 메시지 로드 오류: $e');
       // 오류 처리
