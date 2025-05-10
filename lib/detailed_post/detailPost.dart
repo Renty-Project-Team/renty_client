@@ -1,115 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/main.dart';
+import '../core/token_manager.dart'; // 토큰 관리자 import
+import 'package:dio/dio.dart'; // Dio 추가
+import '../chat/chat.dart' as chat;
+import '../core/api_client.dart';
 import 'productService.dart';
 import 'productDataFile.dart';
-import '../chat/chat_service.dart';
-import '../chat/chat.dart' as chat; // chat 접두사 추가
-import '../login/login.dart';
-import '../api_client.dart'; // ApiClient import 추가
-import 'package:intl/intl.dart'; // NumberFormat 사용을 위한 import 추가
 
 class DetailPage extends StatelessWidget {
   final int itemId;
   const DetailPage({required this.itemId, Key? key}) : super(key: key);
 
-  // 채팅방 생성 함수 추가
-  Future<void> _createChatRoom(BuildContext context, Product product) async {
-    // 채팅 서비스 인스턴스
-    final ChatService chatService = ChatService();
-
-    // 디버깅을 위한 로그 추가
-    print("채팅방 생성 시도: 상품 ID = $itemId");
-
-    // 로그인 상태 확인
-    if (!(await apiClient.hasTokenCookieLocally())) {
-      // 로그인되지 않은 경우 로그인 화면으로 이동
-      Navigator.push(
+  // 채팅방 생성 함수
+  Future<Map<String, dynamic>?> _createChatRoom(
+    BuildContext context,
+    int itemId,
+  ) async {
+    // 로그인 확인
+    if (await TokenManager.getToken() == null) {
+      ScaffoldMessenger.of(
         context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-      );
-      return; // 함수 종료
+      ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다')));
+      Navigator.pushNamed(context, '/login');
+      return null;
     }
 
-    // 채팅방 생성 중 표시
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    scaffoldMessenger.showSnackBar(
-      const SnackBar(content: Text('채팅방 생성 중...')),
-    );
-
     try {
-      // context 전달하여 자동 로그인 화면 이동 활성화
-      final response = await chatService.createChatRoom(itemId, context);
-
-      // 이전 스낵바 제거
-      scaffoldMessenger.hideCurrentSnackBar();
-
-      if (response.isSuccess) {
-        // 성공 메시지 표시
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(response.message)),
-        );
-
-        // 채팅 화면으로 이동
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder:
-                (context) => chat.ChatScreen(
-                  // chat 접두사 추가
-                  chatRoomId: response.chatRoomId ?? 0,
-                  roomName: product.userName,
-                  // 프로필 이미지는 없으므로 null로 설정
-                  profileImageUrl: null,
-                  product: chat.Product(
-                    // chat 접두사 추가
-                    title: product.title,
-                    price: product.price.toString(), // 필요시 형변환
-                    priceUnit: product.priceUnit,
-                    deposit: product.securityDeposit.toString(), // 필요시 형변환
-                  ),
-                  isBuyer: true,
-                ),
-          ),
-        );
-      } else if (response.needsLogin) {
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('로그인이 필요합니다')),
-        );
-      } else {
-        // 기타 오류 처리
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(response.message),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      // 예외 처리
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('오류가 발생했습니다: $e'), backgroundColor: Colors.red),
+      // 채팅방 생성 API 호출
+      final response = await ApiClient().client.post(
+        '/chat/Create',
+        data: {'itemId': itemId},
       );
-    }
-  }
 
-  // 안전하게 가격을 포맷팅하는 도움 함수
-  String _formatPrice(String price) {
-    if (price.isEmpty) return '0';
-
-    try {
-      // 쉼표가 있는 경우 제거
-      String cleanPrice = price.replaceAll(',', '');
-
-      // 소수점이 있는 경우 처리
-      if (cleanPrice.contains('.')) {
-        double value = double.parse(cleanPrice);
-        return NumberFormat('#,###').format(value.toInt());
-      } else {
-        int value = int.parse(cleanPrice);
-        return NumberFormat('#,###').format(value);
+      if (response.statusCode == 200) {
+        return response.data;
       }
-    } catch (e) {
-      print('가격 파싱 오류: $e, 원본 가격: $price');
-      return price; // 파싱 실패 시 원본 문자열 반환
+
+      return null;
+    } on DioException catch (e) {
+      String errorMessage = '채팅방 생성 중 오류가 발생했습니다';
+
+      if (e.response?.statusCode == 400) {
+        // 에러 메시지 확인
+        final message = e.response?.data['message'];
+        if (message != null) {
+          errorMessage = message.toString();
+        }
+      } else if (e.response?.statusCode == 401) {
+        errorMessage = '로그인이 필요합니다';
+        Navigator.pushNamed(context, '/login');
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      return null;
     }
   }
 
@@ -193,7 +138,7 @@ class DetailPage extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  "${_formatPrice(product.price.toString())}원",
+                                  "${product.price}",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 17,
@@ -269,8 +214,41 @@ class DetailPage extends StatelessWidget {
                     Icon(Icons.favorite_border),
                     Spacer(),
                     ElevatedButton(
-                      onPressed:
-                          () => _createChatRoom(context, product), // 채팅 기능 추가
+                      onPressed: () async {
+                        // 채팅방 생성 함수 호출
+                        final result = await _createChatRoom(context, itemId);
+
+                        if (result != null) {
+                          // 채팅방 생성 성공
+                          final chatRoomId = result['chatRoomId'];
+                          final status = result['status'];
+
+                          if (status == 'created' || status == 'exists') {
+                            // Product 모델 생성 (채팅 화면에 전달할 상품 정보)
+                            final chatProduct = chat.Product(
+                              title: product.title,
+                              price: product.price.toString(),
+                              priceUnit: product.priceUnit,
+                              deposit: product.securityDeposit.toString(),
+                            );
+
+                            // 채팅 화면으로 이동
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => chat.ChatScreen(
+                                      chatRoomId: chatRoomId,
+                                      roomName:
+                                          product.userName, // 판매자 이름을 채팅방 이름으로
+                                      product: chatProduct,
+                                      isBuyer: true, // 구매자로 설정
+                                    ),
+                              ),
+                            );
+                          }
+                        }
+                      },
                       child: Text("채팅하기"),
                     ),
                   ],

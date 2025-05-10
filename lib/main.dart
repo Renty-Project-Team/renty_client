@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
         '/search': (context) => const SearchPage(),
-        '/chat_list': (context) => const ChatList(), // 채팅 목록 페이지
+        '/chat_list': (context) => const ChatListPage(), // 채팅 목록 페이지
         '/login': (context) => const LoginPage(),
         '/mypage': (context) => const DummyMyPage(), // 더미 마이페이지
       },

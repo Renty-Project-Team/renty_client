@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키지
-import 'dart:async'; // Timer 사용을 위한 추가
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart'; // 로컬 스토리지 사용
+import '../core/api_client.dart'; // API 클라이언트 추가
+import '../chat/chat_message_storage.dart';
+import '../chat/signalr_service.dart'; // SignalR 서비스 추가
 
 // 앱의 루트 위젯
 class Chating extends StatefulWidget {
@@ -41,16 +45,18 @@ class ChatMessage {
 
 // 상품 정보 데이터 모델
 class Product {
-  String title; // 상품명
-  String price; // 가격
-  String priceUnit; // 가격 단위 (일, 두, 월, 년)
-  String deposit; // 보증금
+  final String title;
+  final String price;
+  final String priceUnit;
+  final String deposit;
+  final String? imageUrl; // 새로 추가한 이미지 URL 필드
 
   Product({
     required this.title,
     required this.price,
     required this.priceUnit,
     required this.deposit,
+    this.imageUrl, // 생성자에 imageUrl 추가
   });
 }
 
@@ -93,9 +99,18 @@ class _ChatScreenState extends State<ChatScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _textController =
       TextEditingController(); // 메시지 입력 컨트롤러
-  final List<ChatMessage> _messages = []; // 채팅 메시지 목록 저장
+  List<ChatMessage> _messages = []; // 채팅 메시지 목록 저장
   final ScrollController _scrollController =
       ScrollController(); // 스크롤 위치 제어용 컨트롤러
+  final ApiClient _apiClient = ApiClient(); // API 클라이언트 인스턴스
+  final SignalRService _signalRService = SignalRService();
+  StreamSubscription<ChatMessage>? _messageSubscription;
+
+  // 채팅방 정보
+  bool _isSeller = false; // 판매자 여부
+  List<Map<String, dynamic>> _users = []; // 채팅방 참여자 정보
+  String? _lastReadAt; // 마지막으로 읽은 시간
+  bool _isLoading = true; // 로딩 상태
 
   // 상품 정보 관리 변수
   late Product _product;
@@ -146,18 +161,222 @@ class _ChatScreenState extends State<ChatScreen>
           deposit: "5000",
         );
 
-    // 예시 메시지 삭제 - 기존 _addInitialMessages() 호출 제거
+    // API 클라이언트 초기화 및 메시지 로드
+    _initApiAndLoadMessages();
+
+    // SignalR 연결 설정
+    _initSignalRConnection();
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    _searchController.dispose();
-    _scrollController.dispose();
-    _searchDebounceTimer?.cancel();
-    _removeOverlay();
-    _fadeAnimController?.dispose();
-    super.dispose();
+  // SignalR 연결 초기화 함수
+  Future<void> _initSignalRConnection() async {
+    try {
+      // SignalR 연결
+      await _signalRService.connect(widget.chatRoomId);
+
+      // 메시지 스트림 구독
+      _messageSubscription = _signalRService.messageStream.listen(
+        _onMessageReceived,
+      );
+    } catch (e) {
+      print('SignalR 연결 초기화 오류: $e');
+      // 오류 처리 (예: 사용자에게 알림)
+      _showNotification('채팅 연결에 실패했습니다. 다시 시도해주세요.');
+    }
+  }
+
+  // 메시지 수신 처리
+  void _onMessageReceived(ChatMessage message) {
+    setState(() {
+      _messages.add(message);
+    });
+
+    // 검색 모드인 경우 현재 검색어로 다시 검색
+    if (_isSearchMode && _lastSearchQuery.isNotEmpty) {
+      _executeSearch(_lastSearchQuery);
+    }
+
+    // 스크롤을 맨 아래로 이동
+    _scrollToBottom();
+  }
+
+  // API 클라이언트 초기화 및 메시지 로드
+  Future<void> _initApiAndLoadMessages() async {
+    try {
+      await _apiClient.initialize();
+      // 저장된 마지막 읽은 시간 불러오기
+      await _loadLastReadAt();
+      // 메시지 로드
+      final messageStorage = ChatMessageStorage();
+      List<ChatMessage> messages = await messageStorage.loadMessages(
+        widget.chatRoomId,
+      );
+      setState(() {
+        _messages = messages;
+      });
+    } catch (e) {
+      print('API 초기화 또는 메시지 로드 오류: $e');
+      // 오류 처리
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // 마지막 읽은 시간 불러오기
+  Future<void> _loadLastReadAt() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _lastReadAt = prefs.getString('lastReadAt_${widget.chatRoomId}');
+    } catch (e) {
+      print('마지막 읽은 시간 불러오기 오류: $e');
+      _lastReadAt = null;
+    }
+  }
+
+  // 마지막 읽은 시간 저장하기
+  Future<void> _saveLastReadAt(String time) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lastReadAt_${widget.chatRoomId}', time);
+      _lastReadAt = time;
+    } catch (e) {
+      print('마지막 읽은 시간 저장 오류: $e');
+    }
+  }
+
+  // API를 통해 메시지 로드 (기존 _loadMessages 메서드 대체)
+  Future<void> _loadMessages() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // API 요청 파라미터 설정
+      final Map<String, dynamic> queryParams = {'roomId': widget.chatRoomId};
+
+      if (_lastReadAt != null) {
+        queryParams['lastReadAt'] = _lastReadAt;
+      }
+
+      // 채팅방 정보 요청
+      final response = await _apiClient.client.get(
+        '/chat/Room',
+        queryParameters: queryParams,
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        print('DEBUG: 채팅방 정보 응답: ${response.data}'); // 디버그 로그
+
+        // 상품 정보 업데이트
+        if (data['offer'] != null) {
+          print('DEBUG: offer 데이터: ${data['offer']}'); // 디버그 로그
+
+          // 중요: 서버에서 받아온 상품 정보로 항상 업데이트
+          setState(() {
+            _product = Product(
+              title: data['offer']['title'] ?? '상품 정보 없음',
+              price: data['offer']['price']?.toString() ?? '0',
+              priceUnit: data['offer']['priceUnit'] ?? '일',
+              deposit: data['offer']['securityDeposit']?.toString() ?? '0',
+              imageUrl: data['offer']['imageUrl'],
+            );
+          });
+
+          print(
+            'DEBUG: 상품 정보 업데이트 완료: ${_product.title}, ${_product.price}원/${_product.priceUnit}',
+          );
+        } else {
+          print('DEBUG: offer 데이터가 없습니다');
+          // offer 데이터가 없을 때 기본값 설정
+          setState(() {
+            _product = Product(
+              title: "상품 정보를 불러올 수 없습니다",
+              price: "0",
+              priceUnit: "일",
+              deposit: "0",
+            );
+          });
+        }
+
+        // 판매자 여부 업데이트
+        _isSeller = data['isSeller'] ?? false;
+
+        // 사용자 정보 업데이트
+        _users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+
+        // 메시지 처리
+        final List<dynamic> messagesData = data['messages'] ?? [];
+        if (messagesData.isNotEmpty) {
+          // 새 메시지 추가
+          final newMessages =
+              messagesData.map<ChatMessage>((msg) {
+                // 메시지 발신자가 본인인지 확인 (이름 비교 등의 로직 필요)
+                // 여기서는 간단히 판매자 여부에 따라 처리 (실제로는 사용자 ID 비교 필요)
+                final isSenderMe =
+                    _isSeller
+                        ? (msg['senderName'] ==
+                            _users.firstWhere(
+                              (u) => u['isSeller'] == true,
+                              orElse: () => {'name': ''},
+                            )['name'])
+                        : (msg['senderName'] ==
+                            _users.firstWhere(
+                              (u) => u['isSeller'] == false,
+                              orElse: () => {'name': ''},
+                            )['name']);
+
+                return ChatMessage(
+                  text: msg['content'] ?? '',
+                  isMe: isSenderMe,
+                  timestamp: DateTime.parse(msg['sendAt']),
+                );
+              }).toList();
+
+          setState(() {
+            _messages.addAll(newMessages);
+          });
+
+          // 메시지가 있으면 마지막 메시지 시간 저장
+          if (newMessages.isNotEmpty) {
+            final lastMessageTime = messagesData.last['sendAt'];
+            _saveLastReadAt(lastMessageTime);
+          }
+        }
+
+        // 로딩 상태 업데이트
+        setState(() {
+          _isLoading = false;
+        });
+
+        // 스크롤을 맨 아래로 이동
+        _scrollToBottom();
+      } else {
+        print('API 오류: ${response.statusCode}');
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('메시지 로드 중 오류 발생: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // 스크롤을 맨 아래로 이동
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   // 검색 모드 토글 함수
@@ -228,9 +447,6 @@ class _ChatScreenState extends State<ChatScreen>
         );
       }
     }
-
-    // 최신 메시지부터 표시하기 위해 역순 정렬
-    results.sort((a, b) => b.messageIndex.compareTo(a.messageIndex));
 
     setState(() {
       _searchResults = results;
@@ -458,8 +674,26 @@ class _ChatScreenState extends State<ChatScreen>
     // 현재 상품 정보를 수정할 임시 변수
     String title = _product.title;
     String price = _product.price;
-    String priceUnit = _product.priceUnit;
     String deposit = _product.deposit;
+
+    // 영어 단위를 한글로 매핑
+    String priceUnit = _product.priceUnit;
+
+    // 영어 단위를 한글로 변환하는 매핑 로직 추가
+    Map<String, String> unitMapping = {
+      'Day': '일',
+      'Week': '주',
+      'Month': '월',
+      'Year': '년',
+    };
+
+    // 서버에서 받은 영어 단위를 한글로 변환
+    if (unitMapping.containsKey(priceUnit)) {
+      priceUnit = unitMapping[priceUnit]!;
+    } else if (!['일', '주', '월', '년'].contains(priceUnit)) {
+      // 매핑에 없고 기본 한글 단위도 아니면 기본값 '일'로 설정
+      priceUnit = '일';
+    }
 
     // 유효성 검사 상태 변수
     bool isPriceValid = price.isNotEmpty;
@@ -791,15 +1025,34 @@ class _ChatScreenState extends State<ChatScreen>
                             onPressed:
                                 isFormValid()
                                     ? () {
-                                      // 상품 정보 업데이트 후, 부모 위젯 상태 갱신을 위해 setState 호출
+                                      // 한글 단위를 영어로 다시 변환
+                                      Map<String, String> reverseUnitMapping = {
+                                        '일': 'Day',
+                                        '주': 'Week',
+                                        '월': 'Month',
+                                        '년': 'Year',
+                                      };
+
+                                      // 저장할 단위 값
+                                      String serverPriceUnit = priceUnit;
+                                      if (reverseUnitMapping.containsKey(
+                                        priceUnit,
+                                      )) {
+                                        serverPriceUnit =
+                                            reverseUnitMapping[priceUnit]!;
+                                      }
+
                                       Navigator.of(context).pop(); // 먼저 모달 닫기
 
                                       setState(() {
                                         _product = Product(
                                           title: title,
                                           price: price,
-                                          priceUnit: priceUnit,
+                                          priceUnit:
+                                              serverPriceUnit, // 영어 단위로 저장
                                           deposit: deposit,
+                                          imageUrl:
+                                              _product.imageUrl, // 이미지 URL 유지
                                         );
 
                                         // 상품 수정 완료 메시지 추가
@@ -887,104 +1140,109 @@ class _ChatScreenState extends State<ChatScreen>
         appBar: _buildAppBar(),
         // 화면 본문 - 배경색을 흰색으로 설정
         backgroundColor: Colors.white,
-        body: Column(
-          children: [
-            // 1. 상품 정보 영역 (중고거래 채팅 등에서 사용)
-            _buildProductInfo(),
+        body:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    // 1. 상품 정보 영역 (중고거래 채팅 등에서 사용)
+                    _buildProductInfo(),
 
-            // 2. 채팅 메시지 목록 영역
-            Expanded(
-              child: Theme(
-                // 리스트뷰의 오버스크롤 색상을 흰색으로 설정
-                data: Theme.of(context).copyWith(
-                  colorScheme: ColorScheme.fromSwatch().copyWith(
-                    secondary: Colors.white,
-                  ),
-                ),
-                child: Container(
-                  color: Colors.white, // 스크롤해도 배경색 흰색 유지
-                  child: ListView.builder(
-                    controller: _scrollController, // 스크롤 컨트롤러 연결
-                    padding: const EdgeInsets.all(8.0), // 패딩 설정
-                    itemCount: _messages.length, // 메시지 개수만큼 항목 생성
-                    itemBuilder: (context, index) {
-                      // 시간 표시 여부 결정: 마지막 메시지이거나 다음 메시지와 분 단위가 다를 때만 표시
-                      final showTimestamp =
-                          index == _messages.length - 1 ||
-                          _messages[index].timestamp.minute !=
-                              _messages[index + 1].timestamp.minute;
+                    // 2. 채팅 메시지 목록 영역
+                    Expanded(
+                      child: Theme(
+                        // 리스트뷰의 오버스크롤 색상을 흰색으로 설정
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.fromSwatch().copyWith(
+                            secondary: Colors.white,
+                          ),
+                        ),
+                        child: Container(
+                          color: Colors.white, // 스크롤해도 배경색 흰색 유지
+                          child: ListView.builder(
+                            controller: _scrollController, // 스크롤 컨트롤러 연결
+                            padding: const EdgeInsets.all(8.0), // 패딩 설정
+                            itemCount: _messages.length, // 메시지 개수만큼 항목 생성
+                            itemBuilder: (context, index) {
+                              // 시간 표시 여부 결정: 마지막 메시지이거나 다음 메시지와 분 단위가 다를 때만 표시
+                              final showTimestamp =
+                                  index == _messages.length - 1 ||
+                                  _messages[index].timestamp.minute !=
+                                      _messages[index + 1].timestamp.minute;
 
-                      // 현재 검색된 메시지인지 확인
-                      int? matchPosition;
-                      int? matchLength;
-                      bool isCurrentSearchResult = false;
+                              // 현재 검색된 메시지인지 확인
+                              int? matchPosition;
+                              int? matchLength;
+                              bool isCurrentSearchResult = false;
 
-                      if (_isSearchMode &&
-                          _currentSearchIndex != -1 &&
-                          _searchResults.isNotEmpty) {
-                        final currentResult =
-                            _searchResults[_currentSearchIndex];
-                        if (currentResult.messageIndex == index) {
-                          isCurrentSearchResult = true;
-                          // 첫 번째 일치 위치 정보를 가져옴 (여러 위치가 있을 수 있음)
-                          matchPosition = currentResult.matchPositions.first;
-                          matchLength = currentResult.matchLengths.first;
-                        }
-                      }
+                              if (_isSearchMode &&
+                                  _currentSearchIndex != -1 &&
+                                  _searchResults.isNotEmpty) {
+                                final currentResult =
+                                    _searchResults[_currentSearchIndex];
+                                if (currentResult.messageIndex == index) {
+                                  isCurrentSearchResult = true;
+                                  // 첫 번째 일치 위치 정보를 가져옴 (여러 위치가 있을 수 있음)
+                                  matchPosition =
+                                      currentResult.matchPositions.first;
+                                  matchLength =
+                                      currentResult.matchLengths.first;
+                                }
+                              }
 
-                      // 각 메시지 아이템 빌드
-                      return _buildMessage(
-                        _messages[index],
-                        showTimestamp: showTimestamp,
-                        isCurrentSearchResult: isCurrentSearchResult,
-                        matchPosition: matchPosition,
-                        matchLength: matchLength,
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // 3. 메시지 입력 영역
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Colors.grey[300]!), // 상단 구분선
-                ),
-              ),
-              child: Row(
-                children: [
-                  // 추가 기능 버튼 (이미지, 파일 첨부 등)
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () {}, // 첨부 기능 (미구현)
-                  ),
-                  // 메시지 입력 필드
-                  Expanded(
-                    child: TextField(
-                      controller: _textController, // 텍스트 컨트롤러 연결
-                      decoration: const InputDecoration(
-                        hintText: '메시지 입력', // 힌트 텍스트
-                        border: InputBorder.none, // 테두리 제거
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ), // 내부 패딩
+                              // 각 메시지 아이템 빌드
+                              return _buildMessage(
+                                _messages[index],
+                                showTimestamp: showTimestamp,
+                                isCurrentSearchResult: isCurrentSearchResult,
+                                matchPosition: matchPosition,
+                                matchLength: matchLength,
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  // 전송 버튼
-                  IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: _handleSubmitted, // 메시지 전송 함수 연결
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+
+                    // 3. 메시지 입력 영역
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Colors.grey[300]!), // 상단 구분선
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // 추가 기능 버튼 (이미지, 파일 첨부 등)
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () {}, // 첨부 기능 (미구현)
+                          ),
+                          // 메시지 입력 필드
+                          Expanded(
+                            child: TextField(
+                              controller: _textController, // 텍스트 컨트롤러 연결
+                              decoration: const InputDecoration(
+                                hintText: '메시지 입력', // 힌트 텍스트
+                                border: InputBorder.none, // 테두리 제거
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ), // 내부 패딩
+                              ),
+                            ),
+                          ),
+                          // 전송 버튼
+                          IconButton(
+                            icon: const Icon(Icons.send),
+                            onPressed: _handleSubmitted, // 메시지 전송 함수 연결
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
       ),
     );
   }
@@ -1137,13 +1395,20 @@ class _ChatScreenState extends State<ChatScreen>
       ),
       child: Row(
         children: [
-          // 상품 이미지 (여기서는 플레이스홀더로 회색 박스 사용)
+          // 상품 이미지 - API에서 가져온 이미지가 있으면 표시
           Container(
             width: 60,
             height: 60,
             decoration: BoxDecoration(
               color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(4), // 모서리 둥글게
+              borderRadius: BorderRadius.circular(4),
+              image:
+                  _product.imageUrl != null
+                      ? DecorationImage(
+                        image: NetworkImage(_product.imageUrl!),
+                        fit: BoxFit.cover,
+                      )
+                      : null,
             ),
           ),
           const SizedBox(width: 12), // 간격
@@ -1162,7 +1427,7 @@ class _ChatScreenState extends State<ChatScreen>
                 ),
                 // 상품 가격 (천 단위 콤마 포맷 적용)
                 Text(
-                  '${_product.priceUnit} ${NumberFormat('#,###').format(int.parse(_product.price))}원',
+                  '${_product.priceUnit} ${_formatPrice(_product.price)}원',
                   style: const TextStyle(fontSize: 16),
                 ),
               ],
@@ -1171,7 +1436,9 @@ class _ChatScreenState extends State<ChatScreen>
           // 사용자 역할에 따라 다른 버튼 표시
           TextButton(
             onPressed:
-                widget.isBuyer ? null : _showProductEditModal, // 판매자만 상품 수정 가능
+                _isSeller
+                    ? _showProductEditModal
+                    : null, // API에서 가져온 isSeller 기반으로 판매자만 상품 수정 가능
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFF3154FF), // #3154FF로 변경
               foregroundColor: Colors.white, // 버튼 텍스트 색상
@@ -1180,7 +1447,7 @@ class _ChatScreenState extends State<ChatScreen>
               ),
               fixedSize: const Size(90, 30), // 버튼 크기 고정
             ),
-            child: Text(widget.isBuyer ? '구매하기' : '상품수정'),
+            child: Text(_isSeller ? '상품수정' : '구매하기'),
           ),
         ],
       ),
@@ -1456,32 +1723,42 @@ class _ChatScreenState extends State<ChatScreen>
     // 빈 메시지는 전송하지 않음
     if (_textController.text.isEmpty) return;
 
+    final messageText = _textController.text;
+    _textController.clear();
+
+    // 1. 메시지를 먼저 UI에 추가
+    final newMessage = ChatMessage(
+      text: messageText,
+      isMe: true,
+      timestamp: DateTime.now(),
+    );
+
     setState(() {
-      // 메시지 목록에 새 메시지 추가
-      _messages.add(
-        ChatMessage(
-          text: _textController.text, // 입력된 텍스트
-          isMe: true, // 내가 보낸 메시지
-          timestamp: DateTime.now(), // 현재 시간
-        ),
-      );
-      _textController.clear(); // 입력 필드 초기화
+      _messages.add(newMessage);
     });
 
-    // 검색 모드인 경우 현재 검색어로 다시 검색 실행
+    // 2. UI 업데이트를 위해 즉시 스크롤 아래로 이동
+    _scrollToBottom();
+
+    // 3. 그 다음에 서버로 메시지 전송
+    _signalRService.sendMessage(widget.chatRoomId, messageText).catchError((e) {
+      print('메시지 전송 오류: $e');
+      _showNotification('메시지 전송에 실패했습니다.');
+
+      // 옵션: 오류 발생 시 메시지에 오류 표시 또는 재전송 옵션 추가
+    });
+
+    // 검색 모드인 경우 검색 업데이트
     if (_isSearchMode && _lastSearchQuery.isNotEmpty) {
       _executeSearch(_lastSearchQuery);
     }
+  }
 
-    // 메시지 추가 후 스크롤을 맨 아래로 이동
-    // 약간의 지연을 두어 UI 업데이트 후 스크롤이 이동하도록 함
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent, // 스크롤 최하단 위치
-        duration: const Duration(milliseconds: 300), // 애니메이션 시간
-        curve: Curves.easeOut, // 애니메이션 곡선
-      );
-    });
+  @override
+  void dispose() {
+    // SignalR 관련 자원 해제
+    _messageSubscription?.cancel();
+    super.dispose();
   }
 }
 
