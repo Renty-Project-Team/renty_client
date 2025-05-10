@@ -12,7 +12,14 @@ class DetailPage extends StatefulWidget {
 }
 
 class _DetailPageState extends State<DetailPage> {
-  int _currentImageIndex = 0; // 전체화면 모달용 현재 인덱스
+  int _currentImageIndex = 0;
+  late Future<Product> _productFuture; // Future 캐싱
+
+  @override
+  void initState() {
+    super.initState();
+    _productFuture = ProductService().fetchProduct(widget.itemId); // 한 번만 호출
+  }
 
   void _showFullScreenImage(List<String> images, int startIndex) {
     showDialog(
@@ -70,7 +77,7 @@ class _DetailPageState extends State<DetailPage> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Product>(
-      future: ProductService().fetchProduct(widget.itemId),
+      future: _productFuture, // 캐싱된 Future 사용
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -80,7 +87,26 @@ class _DetailPageState extends State<DetailPage> {
         } else if (snapshot.hasError) {
           return Scaffold(
             appBar: AppBar(leading: BackButton()),
-            body: Center(child: Text('에러 발생: ${snapshot.error}')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error, color: Colors.red, size: 50),
+                  SizedBox(height: 16),
+                  Text('에러 발생: ${snapshot.error}'),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _productFuture =
+                            ProductService().fetchProduct(widget.itemId);
+                      });
+                    },
+                    child: Text('다시 시도하기'),
+                  ),
+                ],
+              ),
+            ),
           );
         } else if (snapshot.hasData) {
           final product = snapshot.data!;
@@ -96,9 +122,8 @@ class _DetailPageState extends State<DetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 이미지 슬라이드
                   SizedBox(
-                    height: 200,
+                    height: 400,
                     child: PageView.builder(
                       itemCount: product.imagesUrl.length,
                       onPageChanged: (index) {
@@ -111,8 +136,7 @@ class _DetailPageState extends State<DetailPage> {
                             '${apiClient.getDomain}${product.imagesUrl[index]}';
                         return GestureDetector(
                           onTap: () {
-                            _showFullScreenImage(
-                                product.imagesUrl, index);
+                            _showFullScreenImage(product.imagesUrl, index);
                           },
                           child: Image.network(imageUrl, fit: BoxFit.cover),
                         );
@@ -124,7 +148,6 @@ class _DetailPageState extends State<DetailPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 사용자 정보
                         Row(
                           children: [
                             CircleAvatar(child: Icon(Icons.person)),
@@ -135,14 +158,33 @@ class _DetailPageState extends State<DetailPage> {
                         ),
                         Divider(height: 24, thickness: 1),
                         SizedBox(height: 12),
-                        // 제목
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '[${product.state == 'Active' ? '대여 가능' : '대여중'}] ',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: product.state == 'Active' ? Colors.green : Colors.red,
+                                ),
+                              ),
+                              TextSpan(
+                                text: product.title,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black, // 필요 시 테마 색상 사용 가능
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         Text(
-                          product.title,
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
+                          "카테고리: ${product.categories.isNotEmpty ? product.categories.first : '없음'}",
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 8),
-                        // 가격 정보
                         Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -186,23 +228,8 @@ class _DetailPageState extends State<DetailPage> {
                             Divider(height: 24, thickness: 1),
                           ],
                         ),
-                        // 카테고리, 상태
-                        Row(
-                          children: [
-                            Text(
-                              "카테고리: ${product.categories.isNotEmpty ? product.categories.first : '없음'}",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                            "대여여부: ${product.state == 'Active' ? '대여 가능' : '대여 불가'}",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        Divider(height: 24, thickness: 1),
-                        // 설명
                         Text(product.description,
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: TextStyle(fontWeight: FontWeight.bold,fontSize: 14)),
                         SizedBox(height: 24),
                       ],
                     ),
@@ -211,6 +238,7 @@ class _DetailPageState extends State<DetailPage> {
               ),
             ),
             bottomNavigationBar: BottomAppBar(
+              color: Theme.of(context).scaffoldBackgroundColor, // Scaffold 배경색과 동일하게 맞춤
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
@@ -238,3 +266,4 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 }
+

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/main.dart';
 import 'AdBoard.dart';
-import '../detailed_post/detailPost.dart';
+import 'package:renty_client/detailed_post/detailPost.dart';
 import 'postService.dart';
 import 'postDataFile.dart';
 
@@ -33,6 +33,7 @@ class _ProductListPageState extends State<ProductListPage> {
   }
 
   Future<void> _fetchProducts() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
 
     String? maxCreatedAt;
@@ -44,19 +45,20 @@ class _ProductListPageState extends State<ProductListPage> {
       final newProducts =
       await PostService().fetchProducts(maxCreatedAt: maxCreatedAt);
       if (newProducts.length < 20) {
-        _hasMore = false; // 20개 미만 → 더 이상 불러올 데이터 없음
+        _hasMore = false;
       }
       setState(() {
         _products.addAll(newProducts);
       });
     } catch (e) {
-      print('상품 불러오기 실패: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('상품 불러오기 실패: $e')),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  /// ✅ 위로 당길 때 새로고침
   Future<void> _refreshProducts() async {
     setState(() {
       _products.clear();
@@ -73,25 +75,21 @@ class _ProductListPageState extends State<ProductListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalItemCount =
-        _products.length + (_hasMore ? 1 : 0); // 더 불러올 데이터 있을 때만 로딩용 아이템 추가
-
     return RefreshIndicator(
       onRefresh: _refreshProducts,
-      child: ListView.builder(
+      child: ListView.separated(
         controller: _scrollController,
-        itemCount: totalItemCount,
+        itemCount: _products.length + (_hasMore ? 1 : 0),
+        separatorBuilder: (context, index) {
+          if ((index + 1) % 5 == 0) {
+            return AdCard();
+          }
+          return SizedBox(height: 0);
+        },
         itemBuilder: (context, index) {
           if (index < _products.length) {
-            if (index != 0 && index % 5 == 0) {
-              return AdCard();
-            }
-
-            final productIndex = index - (index ~/ 5);
-            final product = _products[productIndex];
-            return ProductCard(product: product);
+            return ProductCard(product: _products[index]);
           } else {
-            // 마지막에 로딩 인디케이터 (더 불러올 데이터 있을 때만)
             return Padding(
               padding: const EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
@@ -115,8 +113,7 @@ class ProductCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                DetailPage(itemId: product.id), // 상세 페이지로 이동
+            builder: (context) => DetailPage(itemId: product.id),
           ),
         );
       },
@@ -129,7 +126,6 @@ class ProductCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 이미지
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
@@ -146,29 +142,19 @@ class ProductCard extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 12),
-              // 정보들
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 제목
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            product.title,
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      product.title,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 8),
                     Text(
                       "${product.priceUnit} ${product.price.toInt()}원",
-                      style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 4),
                     Text(
@@ -178,36 +164,27 @@ class ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // 좋아요/조회수
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.more_vert, size: 20, color: Colors.grey[600])
-                    ],
-                  ),
+                  Icon(Icons.more_vert, size: 20, color: Colors.grey[600]),
                   SizedBox(height: 30),
                   Row(
                     children: [
-                      Icon(Icons.favorite_border,
-                          size: 14, color: Colors.grey),
+                      Icon(Icons.favorite_border, size: 14, color: Colors.grey),
                       SizedBox(width: 4),
                       Text('${product.wishCount}',
-                          style:
-                          TextStyle(fontSize: 12, color: Colors.grey)),
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                   SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.remove_red_eye,
-                          size: 14, color: Colors.grey),
+                      Icon(Icons.remove_red_eye, size: 14, color: Colors.grey),
                       SizedBox(width: 4),
                       Text('${product.viewCount}',
-                          style:
-                          TextStyle(fontSize: 12, color: Colors.grey)),
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ],

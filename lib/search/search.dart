@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
 import '../global_theme.dart';
-import 'SearchCategory.dart';
+import 'SearchResultPage.dart';
 import '../bottom_menu_bar.dart';
 
+class SearchPage extends StatefulWidget {
+  const SearchPage({super.key}); // ✅ const 생성자
 
-class SearchPage extends StatelessWidget {
-  const SearchPage({super.key});
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  final TextEditingController _searchController = TextEditingController();
+
+  final List<Map<String, dynamic>> categories = [
+    {'icon': Icons.checkroom, 'label': 'ClothingAndFashion', 'kor': '의류 및 패션'},
+    {'icon': Icons.computer, 'label': 'Electronics', 'kor': '전자제품'},
+    {'icon': Icons.chair, 'label': 'FurnitureAndInterior', 'kor': '가구 및 인테리어'},
+    {'icon': Icons.brush, 'label': 'BeautyAndCosmetics', 'kor': '뷰티/미용'},
+    {'icon': Icons.book, 'label': 'Books', 'kor': '도서'},
+    {'icon': Icons.create, 'label': 'Stationery', 'kor': '문구'},
+    {'icon': Icons.directions_car, 'label': 'CarAccessories', 'kor': '자동차용품'},
+    {'icon': Icons.sports_tennis, 'label': 'Sports', 'kor': '스포츠레저'},
+    {'icon': Icons.baby_changing_station, 'label': 'InfantsAndChildren', 'kor': '유아 및 아동'},
+    {'icon': Icons.pets, 'label': 'PetSupplies', 'kor': '반려동물 용품'},
+    {'icon': Icons.local_hospital, 'label': 'HealthAndMedical', 'kor': '건강 및 의료'},
+    {'icon': Icons.hiking, 'label': 'Hobbies', 'kor': '취미 및 여가'},
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,6 +38,7 @@ class SearchPage extends StatelessWidget {
             children: [
               Expanded(
                 child: TextField(
+                  controller: _searchController,
                   decoration: InputDecoration(
                     hintText: '검색어를 입력해주세요',
                     border: OutlineInputBorder(
@@ -23,23 +46,74 @@ class SearchPage extends StatelessWidget {
                     ),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12),
                   ),
-                  style: TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14),
                 ),
               ),
-              SizedBox(width: 6), // 텍스트 필드와 아이콘 사이 간격
+              const SizedBox(width: 6),
               IconButton(
-                icon: Icon(Icons.search,size:30),
+                icon: const Icon(Icons.search, size: 30),
                 onPressed: () {
-                  // 검색 버튼 눌렀을 때 동작
-                  print("검색 버튼 클릭됨");
+                  final query = _searchController.text.trim();
+                  if (query.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SearchResultPage(query: query),
+                      ),
+                    );
+                  }
                 },
               ),
             ],
           ),
         ),
       ),
-      body: Center(child: SearchCategories()),
+      body: Column(
+        children: [
+          Divider(thickness: 1, height: 1, color: Colors.grey[300]),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(15.0),
+              child: GridView.builder(
+                itemCount: categories.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 5,
+                  mainAxisSpacing: 12,
+                ),
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SearchResultPage(
+                            query: '',
+                            category: category['label'],
+                          ),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(category['icon'], size: 35),
+                        const SizedBox(height: 8),
+                        Text(
+                          category['kor'],
+                          style: const TextStyle(fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
-
