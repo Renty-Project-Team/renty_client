@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:renty_client/main.dart';
 import 'productService.dart';
 import 'productDataFile.dart';
+import 'package:renty_client/windowClickEvent/dragEvent.dart'; // 드래그 wrapper 임포트
 
 class DetailPage extends StatefulWidget {
   final int itemId;
@@ -36,15 +36,22 @@ class _DetailPageState extends State<DetailPage> {
               backgroundColor: Colors.black,
               child: Stack(
                 children: [
-                  MouseDraggablePageView(
-                    images: images.map((img) => '${apiClient.getDomain}$img').toList(),
+                  MouseDraggableWrapper(
                     controller: controller,
-                    isFullScreen: true,
-                    onPageChanged: (index) {
-                      setState(() {
-                        localIndex = index;
-                      });
-                    },
+                    child: PageView.builder(
+                      controller: controller,
+                      itemCount: images.length,
+                      onPageChanged: (index) => setState(() => localIndex = index),
+                      itemBuilder: (context, index) {
+                        final imageUrl = '${apiClient.getDomain}${images[index]}';
+                        return Image.network(
+                          imageUrl,
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          height: double.infinity,
+                        );
+                      },
+                    ),
                   ),
                   Positioned(
                     top: 40,
@@ -71,6 +78,34 @@ class _DetailPageState extends State<DetailPage> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildImageSlider(List<String> imageUrls) {
+    final controller = PageController(initialPage: _currentImageIndex);
+
+    return MouseDraggableWrapper(
+      controller: controller,
+      child: PageView.builder(
+        controller: controller,
+        itemCount: imageUrls.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentImageIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          final imageUrl = '${apiClient.getDomain}${imageUrls[index]}';
+          return GestureDetector(
+            onTap: () => _showFullScreenImage(imageUrls, index),
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -121,22 +156,7 @@ class _DetailPageState extends State<DetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    height: 400,
-                    child: MouseDraggablePageView(
-                      images: product.imagesUrl.map((img) => '${apiClient.getDomain}$img').toList(),
-                      controller: PageController(initialPage: _currentImageIndex),
-                      isFullScreen: false,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentImageIndex = index;
-                        });
-                      },
-                      onImageTap: (index) {
-                        _showFullScreenImage(product.imagesUrl, index);
-                      },
-                    ),
-                  ),
+                  SizedBox(height: 400, child: _buildImageSlider(product.imagesUrl)),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -241,83 +261,6 @@ class _DetailPageState extends State<DetailPage> {
           );
         }
       },
-    );
-  }
-}
-
-// =====================
-// MouseDraggablePageView (드래그 + 페이지뷰 통합)
-// =====================
-class MouseDraggablePageView extends StatefulWidget {
-  final List<String> images;
-  final PageController controller;
-  final Function(int)? onPageChanged;
-  final Function(int)? onImageTap;
-  final bool isFullScreen;
-
-  const MouseDraggablePageView({
-    required this.images,
-    required this.controller,
-    this.onPageChanged,
-    this.onImageTap,
-    this.isFullScreen = false,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  _MouseDraggablePageViewState createState() => _MouseDraggablePageViewState();
-}
-
-class _MouseDraggablePageViewState extends State<MouseDraggablePageView> {
-  double? _dragStartX;
-  double _dragThreshold = 200;
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (event) {
-        if (event.kind == PointerDeviceKind.mouse) {
-          _dragStartX = event.position.dx;
-        }
-      },
-      onPointerMove: (event) {
-        if (_dragStartX != null) {
-          double dragDelta = event.position.dx - _dragStartX!;
-          if (dragDelta.abs() > _dragThreshold) {
-            if (dragDelta > 0) {
-              widget.controller.previousPage(
-                  duration: Duration(milliseconds: 300), curve: Curves.ease);
-            } else {
-              widget.controller.nextPage(
-                  duration: Duration(milliseconds: 300), curve: Curves.ease);
-            }
-            _dragStartX = null;
-          }
-        }
-      },
-      onPointerUp: (_) => _dragStartX = null,
-      onPointerCancel: (_) => _dragStartX = null,
-      child: PageView.builder(
-        controller: widget.controller,
-        itemCount: widget.images.length,
-        onPageChanged: widget.onPageChanged,
-        itemBuilder: (context, index) {
-          return GestureDetector(
-            onTap: () {
-              if (widget.onImageTap != null) {
-                widget.onImageTap!(index);
-              }
-            },
-              child: Image.network(
-                widget.images[index],
-                fit: widget.isFullScreen ? BoxFit.contain : BoxFit.cover,
-                width: widget.isFullScreen ? double.infinity : null,
-                height: widget.isFullScreen ? double.infinity : null,
-              ),
-
-          );
-        },
-      ),
     );
   }
 }

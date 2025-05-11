@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/main.dart';
+import 'package:flutter/foundation.dart';
 import 'AdBoard.dart';
 import 'package:renty_client/detailed_post/detailPost.dart';
 import 'postService.dart';
 import 'postDataFile.dart';
+import 'package:renty_client/windowClickEvent/scrollEvent.dart'; // 추가된 import
 
 class ProductListPage extends StatefulWidget {
   @override
@@ -75,15 +77,14 @@ class _ProductListPageState extends State<ProductListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
+    final listView = RefreshIndicator(
       onRefresh: _refreshProducts,
       child: ListView.separated(
         controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(), // ✅ 모바일에서 새로고침 가능하도록 강제
         itemCount: _products.length + (_hasMore ? 1 : 0),
         separatorBuilder: (context, index) {
-          if ((index + 1) % 5 == 0) {
-            return AdCard();
-          }
+          if ((index + 1) % 5 == 0) return AdCard();
           return SizedBox(height: 0);
         },
         itemBuilder: (context, index) {
@@ -98,6 +99,26 @@ class _ProductListPageState extends State<ProductListPage> {
         },
       ),
     );
+
+    // ✅ 데스크탑일 경우만 드래그+단축키 래퍼 적용
+    final isDesktop = [
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+    ].contains(defaultTargetPlatform);
+
+    if (isDesktop) {
+      return DraggableScrollWrapper(
+        controller: _scrollController,
+        onRefreshShortcut: () {
+          print('✅ F5 or Ctrl+R 눌러서 새로고침 호출됨');
+          _refreshProducts();
+        },
+        child: listView,
+      );
+    } else {
+      return listView; // 모바일에서는 그대로 RefreshIndicator만 사용
+    }
   }
 }
 
