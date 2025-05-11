@@ -69,18 +69,6 @@ class _MainPageState extends State<MainPage> {
         _currentIndex = index;
       });
     }
-    if (index == 3) { // 채팅팅 탭 클릭 시
-      if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
-        Navigator.pushNamed(context, '/chat_list'); // 등록 화면으로 이동
-      }
-      else {
-        Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
-      }
-    } else {
-      setState(() { // 상태 변경 및 UI 갱신 요청
-        _currentIndex = index;
-      });
-    }
     if (index == 4) { // my 탭 클릭 시
       if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
