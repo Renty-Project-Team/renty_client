@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/Example/dummy_my_page.dart';
+import 'package:renty_client/Example/example_signalr_test_page.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/login/login.dart';
 import 'package:renty_client/product_upload.dart';
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
         '/product_upload': (context) => const ProductUpload(),
         '/search': (context) => const SearchPage(),
         '/login': (context) => const LoginPage(),
+        '/chat': (context) => const SignalRTestPage(), // SignalR 테스트 페이지
         '/mypage': (context) => const DummyMyPage(), // 더미 마이페이지
       },
     );
@@ -65,6 +67,14 @@ class _MainPageState extends State<MainPage> {
         Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
       }
     }
+
+    else if (index == 3) { // 채팅 탭 클릭 시
+      if (await TokenManager.getToken() != null) { // 로컬에 토큰이 있는지 확인
+        Navigator.pushNamed(context, '/chat'); // 채팅 화면으로 이동
+      }
+      else {
+        Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
+      }
     else if (index == 4) { // my 탭 클릭 시
       if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
