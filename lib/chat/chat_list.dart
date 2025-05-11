@@ -297,6 +297,8 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   Widget _buildChatRoomItem(Map<String, dynamic> chatRoom) {
+    final int unreadCount = chatRoom['unreadCount'] ?? 0;
+
     return CenterRippleEffect(
       onTap: () async {
         await _markChatAsRead(chatRoom['chatRoomId']);
@@ -325,17 +327,32 @@ class _ChatListPageState extends State<ChatListPage> {
                           ? const Icon(Icons.person, color: Colors.white)
                           : null,
                 ),
-                if ((chatRoom['unreadCount'] ?? 0) > 0)
+                if (unreadCount > 0)
                   Positioned(
-                    top: 0,
-                    right: 0,
+                    top: -5,
+                    right: -5,
                     child: Container(
-                      width: 10,
-                      height: 10,
+                      constraints: BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1),
+                        shape:
+                            unreadCount < 10
+                                ? BoxShape.circle
+                                : BoxShape.rectangle,
+                        borderRadius:
+                            unreadCount < 10 ? null : BorderRadius.circular(9),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -370,9 +387,7 @@ class _ChatListPageState extends State<ChatListPage> {
                       fontSize: 14,
                       color: Colors.black,
                       fontWeight:
-                          (chatRoom['unreadCount'] ?? 0) > 0
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -387,33 +402,38 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   void _navigateToChatScreen(Map<String, dynamic> chatRoom) {
-  try {
-    final chatRoomId = chatRoom['chatRoomId'];
-    final roomName = chatRoom['roomName'] ?? '이름 없음';
+    try {
+      final chatRoomId = chatRoom['chatRoomId'];
+      final roomName = chatRoom['roomName'] ?? '이름 없음';
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(
-          chatRoomId: chatRoomId,
-          roomName: roomName,
-          profileImageUrl: chatRoom['profileImageUrl'],
-          product: null,
-          isBuyer: chatRoom['isBuyer'] ?? true,
-        ),
-      ),
-    ).then((_) {
-      if (mounted) {
-        // 기존 메시지 유지하면서 새 메시지 추가
-        _fetchChatRooms();
-      }
-    });
-  } catch (e) {
-    print('채팅방 이동 오류: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('채팅방 접속 중 오류가 발생했습니다')),
-    );
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder:
+                  (context) => ChatScreen(
+                    chatRoomId: chatRoomId,
+                    roomName: roomName,
+                    profileImageUrl: chatRoom['profileImageUrl'],
+                    product: null,
+                    isBuyer: chatRoom['isBuyer'] ?? true,
+                  ),
+            ),
+          )
+          .then((_) async {
+            if (mounted) {
+              // 채팅방을 나갈 때 읽음 처리
+              await _markChatAsRead(chatRoomId);
+              // 채팅방 목록 갱신
+              _fetchChatRooms();
+            }
+          });
+    } catch (e) {
+      print('채팅방 이동 오류: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('채팅방 접속 중 오류가 발생했습니다')));
+    }
   }
-}
 
   void _showChatRoomOptions(Map<String, dynamic> chatRoom) {
     showModalBottomSheet(

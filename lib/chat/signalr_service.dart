@@ -33,6 +33,9 @@ class SignalRService {
   // 현재 채팅방 ID
   int _currentRoomId = 0;
 
+  // 현재 발신자(본인) 이름
+  String _callerName = '';
+
   // 메시지 캐시 (채팅방 ID를 키로 사용)
   final Map<int, List<ChatMessage>> _messageCache = {};
 
@@ -75,7 +78,44 @@ class SignalRService {
   // 이벤트 핸들러 등록
   void _registerEventHandlers() {
     // 메시지 수신 핸들러 - example_signalr_test_page.dart의 이벤트 이름 사용
-    _hubConnection?.on("_handleIncomingMessage", _handleReceiveMessage);
+    _hubConnection?.on("_handleIncomingMessage", (arguments) {
+      if (arguments == null || arguments.isEmpty) return;
+      try {
+        final messageData = arguments[0] as Map<String, dynamic>;
+        print('메시지 수신: $messageData'); // 디버깅용
+
+        // 채팅방 ID 확인 (서버 응답에 맞게 조정 필요)
+        final int roomId = messageData['roomId'] ?? _currentRoomId;
+
+        // 발신자 이름 가져오기
+        final String senderName = messageData['senderId'] ?? '';
+
+        // 발신자가 자신인지 확인 (CallerName과 비교)
+        final bool isMe = senderName == _callerName;
+
+        // 채팅 메시지 객체 생성
+        final message = ChatMessage(
+          text: messageData['content'] ?? '',
+          isMe: isMe,
+          timestamp: DateTime.parse(
+            messageData['sendAt'] ?? DateTime.now().toIso8601String(),
+          ),
+        );
+
+        // 메시지 캐시에 추가
+        _addMessageToCache(roomId, message);
+
+        // 메시지 파일 저장
+        _saveMessagesToFile(roomId);
+
+        // 메시지 스트림에 추가 (현재 방의 메시지만)
+        if (roomId == _currentRoomId) {
+          _messageStreamController.add(message);
+        }
+      } catch (e) {
+        print('메시지 처리 오류: $e');
+      }
+    });
 
     // 연결 상태 변경 핸들러 등록
     _hubConnection?.onreconnecting(({error}) {
@@ -92,45 +132,6 @@ class SignalRService {
       _isConnected = false;
       print('SignalR 연결 종료: ${error?.toString() ?? "정상 종료"}');
     });
-  }
-
-  // 서버로부터 받은 메시지 처리
-  void _handleReceiveMessage(List<Object?>? args) {
-    if (args == null || args.isEmpty) return;
-
-    try {
-      // JSON 파싱
-      final Map<String, dynamic> messageData = jsonDecode(args[0].toString());
-      print('메시지 수신: $messageData'); // 디버깅용
-
-      // 채팅방 ID 확인 (서버 응답에 맞게 조정 필요)
-      final int roomId = messageData['roomId'] ?? _currentRoomId;
-
-      // 발신자가 자신인지 확인 (서버 응답에 맞게 조정 필요)
-      final bool isMe = messageData['isSender'] == true;
-
-      // 채팅 메시지 객체 생성
-      final message = ChatMessage(
-        text: messageData['content'] ?? '',
-        isMe: isMe,
-        timestamp: DateTime.parse(
-          messageData['sendAt'] ?? DateTime.now().toIso8601String(),
-        ),
-      );
-
-      // 메시지 캐시에 추가
-      _addMessageToCache(roomId, message);
-
-      // 메시지 파일 저장
-      _saveMessagesToFile(roomId);
-
-      // 메시지 스트림에 추가 (현재 방의 메시지만)
-      if (roomId == _currentRoomId) {
-        _messageStreamController.add(message);
-      }
-    } catch (e) {
-      print('메시지 처리 오류: $e');
-    }
   }
 
   // 메시지를 캐시에 추가
@@ -153,7 +154,7 @@ class SignalRService {
   }
 
   // SignalR 서버 연결
-  Future<void> connect(int chatRoomId) async {
+  Future<void> connect(int chatRoomId, {String callerName = ''}) async {
     if (_isConnected && _currentRoomId == chatRoomId) return;
 
     try {
@@ -162,6 +163,9 @@ class SignalRService {
       if (token == null || token.isEmpty) {
         throw Exception('인증 토큰이 없습니다. 로그인이 필요합니다.');
       }
+
+      // 발신자 이름 설정
+      _callerName = callerName;
 
       // 기존 연결 종료
       await disconnect();
@@ -276,7 +280,7 @@ class SignalRService {
               )
               .toList();
 
-      // 시간순 정렬
+      // 시간순 정렬 (오래된 메시지가 먼저 오도록)
       messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       // 캐시에 저장
