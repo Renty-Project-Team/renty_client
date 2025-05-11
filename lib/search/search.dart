@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../global_theme.dart';
-import 'SearchResultPage.dart';
-import '../bottom_menu_bar.dart';
+import 'searchResultPage.dart';
+
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key}); // ✅ const 생성자
@@ -58,7 +57,9 @@ class _SearchPageState extends State<SearchPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => SearchResultPage(query: query),
+                        builder: (context) => SearchResultPage(
+                          initialQuery: query,  // ✅ 이름 수정
+                          initialCategory: null, ),
                       ),
                     );
                   }
@@ -89,8 +90,8 @@ class _SearchPageState extends State<SearchPage> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => SearchResultPage(
-                            query: '',
-                            category: category['label'],
+                            initialQuery: '',  // ✅ 이름 수정
+                            initialCategory: category['label'],
                           ),
                         ),
                       );

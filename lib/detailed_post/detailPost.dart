@@ -270,7 +270,7 @@ class MouseDraggablePageView extends StatefulWidget {
 
 class _MouseDraggablePageViewState extends State<MouseDraggablePageView> {
   double? _dragStartX;
-  double _dragThreshold = 300;
+  double _dragThreshold = 200;
 
   @override
   Widget build(BuildContext context) {
