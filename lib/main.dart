@@ -10,7 +10,7 @@ import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
 import 'post/mainBoard.dart';
 import 'search/search.dart';
-
+import 'chat/chat_list.dart';
 
 
 final ApiClient apiClient = ApiClient();
@@ -37,6 +37,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
         '/search': (context) => const SearchPage(),
+        '/chat_list': (context) => const ChatListPage(), // 채팅 목록 페이지
         '/login': (context) => const LoginPage(),
         '/chat': (context) => const SignalRTestPage(), // SignalR 테스트 페이지
         '/mypage': (context) => const DummyMyPage(), // 더미 마이페이지
@@ -56,8 +57,8 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // 현재 선택된 인덱스
 
   void _onItemTapped(int index) async {
-    if (index == 1){
-      Navigator.pushNamed(context, '/search'); // 돌아올 때까지 대기
+    if (index == 1) {
+      Navigator.pushNamed(context, '/search');
     }
     else if (index == 2) { // 등록 탭 클릭 시
       if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
@@ -82,8 +83,9 @@ class _MainPageState extends State<MainPage> {
       else {
         Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
       }
-    }else {
-      setState(() { // 상태 변경 및 UI 갱신 요청
+    } else {
+      setState(() {
+        // 상태 변경 및 UI 갱신 요청
         _currentIndex = index;
       });
     }
@@ -93,11 +95,11 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: LogoAppBar(),
-      body: Center(
-        child: ProductListPage(),
+      body: Center(child: ProductListPage()),
+      bottomNavigationBar: BottomMenuBar(
+        currentIndex: _currentIndex,
+        onTap: _onItemTapped,
       ),
-      bottomNavigationBar: BottomMenuBar(currentIndex: _currentIndex, onTap: _onItemTapped),
     );
   }
 }
-

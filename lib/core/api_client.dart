@@ -50,24 +50,6 @@ class ApiClient {
       logPrint: (o) => print('[DioLog] $o'), // 로그 출력 방식 정의
     ));
 
-    // 인증되지 않은 SSL 인증서 허용 (개발 환경에서만 사용)
-    if (dio.httpClientAdapter is IOHttpClientAdapter) {
-      final adapter = dio.httpClientAdapter as IOHttpClientAdapter;
-      adapter.createHttpClient = () {
-        // HttpClient 인스턴스 생성
-        final client = HttpClient();
-
-        // 중요: 이 코드는 보안 검증을 비활성화하므로 매우 신중하게 사용해야 합니다.
-        // 운영 환경에서는 절대 사용하지 마세요.
-        client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-          print('⚠️ WARNING: Accepting invalid certificate for $host (Using createHttpClient)');
-          return true; // 모든 인증서 오류 무시하고 연결 허용 (매우 위험!)
-        };
-        return client;
-      };
-    }
-
-
     _isInitialized = true;
   }
 
