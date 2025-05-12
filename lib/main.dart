@@ -12,6 +12,7 @@ import 'post/mainBoard.dart';
 import 'search/search.dart';
 
 
+
 final ApiClient apiClient = ApiClient();
 
 void main() async {
@@ -56,40 +57,32 @@ class _MainPageState extends State<MainPage> {
 
   void _onItemTapped(int index) async {
     if (index == 1){
-      Navigator.pushNamed(context, '/search');
+      Navigator.pushNamed(context, '/search'); // 돌아올 때까지 대기
     }
-    if (index == 2) { // 등록 탭 클릭 시
+    else if (index == 2) { // 등록 탭 클릭 시
       if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
       }
       else {
         Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
       }
-    } else {
-      setState(() { // 상태 변경 및 UI 갱신 요청
-        _currentIndex = index;
-      });
     }
-    if (index == 3) { // 채팅 탭 클릭 시
+
+    else if (index == 3) { // 채팅 탭 클릭 시
       if (await TokenManager.getToken() != null) { // 로컬에 토큰이 있는지 확인
         Navigator.pushNamed(context, '/chat'); // 채팅 화면으로 이동
       }
       else {
         Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
       }
-    } else {
-      setState(() { // 상태 변경 및 UI 갱신 요청
-        _currentIndex = index;
-      });
-    }
-    if (index == 4) { // my 탭 클릭 시
+    else if (index == 4) { // my 탭 클릭 시
       if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
         Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
       }
       else {
         Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
       }
-    } else {
+    }else {
       setState(() { // 상태 변경 및 UI 갱신 요청
         _currentIndex = index;
       });
