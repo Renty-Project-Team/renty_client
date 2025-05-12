@@ -12,6 +12,20 @@ class DetailPage extends StatefulWidget {
   final int itemId;
   const DetailPage({required this.itemId, Key? key}) : super(key: key);
 
+  @override
+  State<DetailPage> createState() => _DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage> {
+  int _currentImageIndex = 0;
+  late Future<Product> _productFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _productFuture = ProductService().fetchProduct(widget.itemId);
+  }
+
   // 채팅방 생성 함수
   Future<Map<String, dynamic>?> _createChatRoom(
     BuildContext context,
@@ -57,20 +71,6 @@ class DetailPage extends StatefulWidget {
       ).showSnackBar(SnackBar(content: Text(errorMessage)));
       return null;
     }
-  }
-
-  @override
-  State<DetailPage> createState() => _DetailPageState();
-}
-
-class _DetailPageState extends State<DetailPage> {
-  int _currentImageIndex = 0;
-  late Future<Product> _productFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _productFuture = ProductService().fetchProduct(widget.itemId);
   }
 
   void _showFullScreenImage(List<String> images, int startIndex) {
@@ -297,7 +297,7 @@ class _DetailPageState extends State<DetailPage> {
                     ElevatedButton(
                       onPressed: () async {
                         // 채팅방 생성 함수 호출
-                        final result = await _createChatRoom(context, itemId);
+                        final result = await _createChatRoom(context, widget.itemId);
 
                         if (result != null) {
                           // 채팅방 생성 성공
