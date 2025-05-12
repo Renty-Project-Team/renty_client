@@ -58,6 +58,7 @@ class SignalRService {
       final httpConnectionOptions = HttpConnectionOptions(
         logger: Logger("SignalRLogger"),
         logMessageContent: true,
+        accessTokenFactory: () async => await TokenManager.getToken() ?? "", // 토큰을 가져오는 비동기 함수
       );
 
       // 허브 연결 객체 생성
