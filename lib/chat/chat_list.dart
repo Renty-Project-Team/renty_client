@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'package:renty_client/main.dart';
 import '../core/token_manager.dart';
-import '../global_theme.dart';
 import '../bottom_menu_bar.dart';
 import '../logo_app_ber.dart';
 import 'dart:math' as math;
@@ -236,34 +235,8 @@ class _ChatListPageState extends State<ChatListPage> {
       bottomNavigationBar: BottomMenuBar(
         currentIndex: _currentIndex,
         onTap: (index) async {
-          if (index == 0) {
-            if (!mounted) return;
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/',
-              (route) => false,
-              arguments: {'initialIndex': 0},
-            );
-          } else if (index == 2) {
-            if (await TokenManager.getToken() != null) {
-              if (!mounted) return;
-              Navigator.pushNamed(context, '/product_upload');
-            } else {
-              if (!mounted) return;
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
-            }
-          } else if (index == 3) {
-            if (index == _currentIndex) {
-              _fetchChatRooms();
-            }
-          }
-
-          setState(() {
-            _currentIndex = index;
-          });
+          if (index == _currentIndex) return; // 이미 선택된 탭이면 아무것도 하지 않음
+          await navigateBarAction(context, index);
         },
       ),
     );
