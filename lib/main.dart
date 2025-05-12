@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:renty_client/Example/dummy_my_page.dart';
-import 'package:renty_client/Example/example_signalr_test_page.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/login/login.dart';
 import 'package:renty_client/product_upload.dart';
@@ -24,6 +23,39 @@ void main() async {
   runApp(const MyApp());
 }
 
+Future<void> navigateBarAction(BuildContext context, int index) async {
+  if (index == 0) { // 홈 탭 클릭 시
+    Navigator.pushNamed(context, '/');
+  }
+  else if (index == 1) {
+    Navigator.pushNamed(context, '/search');
+  }
+  else if (index == 2) { // 등록 탭 클릭 시
+    if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
+      Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
+    }
+    else {
+      Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
+    }
+  }
+  else if (index == 3) { // 채팅 탭 클릭 시
+    if (await TokenManager.getToken() != null) { // 로컬에 토큰이 있는지 확인
+      Navigator.pushNamed(context, '/chat_list'); // 채팅 화면으로 이동
+    }
+    else {
+      Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
+    }
+  }
+  else if (index == 4) { // my 탭 클릭 시
+    if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
+      Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
+    }
+    else {
+      Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
+    }
+  } 
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -39,7 +71,6 @@ class MyApp extends StatelessWidget {
         '/search': (context) => const SearchPage(),
         '/chat_list': (context) => const ChatListPage(), // 채팅 목록 페이지
         '/login': (context) => const LoginPage(),
-        '/chat': (context) => const SignalRTestPage(), // SignalR 테스트 페이지
         '/mypage': (context) => const DummyMyPage(), // 더미 마이페이지
       },
     );
@@ -57,38 +88,8 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // 현재 선택된 인덱스
 
   void _onItemTapped(int index) async {
-    if (index == 1) {
-      Navigator.pushNamed(context, '/search');
-    }
-    else if (index == 2) { // 등록 탭 클릭 시
-      if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
-        Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
-      }
-      else {
-        Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
-      }
-    }
-
-    else if (index == 3) { // 채팅 탭 클릭 시
-      if (await TokenManager.getToken() != null) { // 로컬에 토큰이 있는지 확인
-        Navigator.pushNamed(context, '/chat'); // 채팅 화면으로 이동
-      }
-      else {
-        Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
-      }
-    else if (index == 4) { // my 탭 클릭 시
-      if (await TokenManager.getToken() != null) { // 로컬에 토큰 쿠키가 있는지 확인
-        Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
-      }
-      else {
-        Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
-      }
-    } else {
-      setState(() {
-        // 상태 변경 및 UI 갱신 요청
-        _currentIndex = index;
-      });
-    }
+    if (index == _currentIndex) return; // 이미 선택된 탭이면 아무것도 하지 않음
+    await navigateBarAction(context, index);
   }
 
   @override
