@@ -5,6 +5,7 @@ import 'package:renty_client/logo_app_ber.dart'; // 로고 앱바 추가
 import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/myPage/profileEdit.dart';
+import 'package:renty_client/myPage/writeReview.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -43,9 +44,35 @@ class _ProfilePageState extends State<ProfilePage> {
     // 햅틱 피드백 추가
     HapticFeedback.lightImpact();
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('디버깅: $title 페이지로 이동')));
+    // 대여중인 제품목록 클릭 시 리뷰 작성 페이지로 이동
+    if (title == '대여중인 제품목록') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => ReviewWritePage(
+                productTitle: '예제 상품 입니다',
+                productImageUrl: null, // 이미지 URL이 아직 없음
+                rentalDate: DateTime.now().subtract(
+                  const Duration(days: 7),
+                ), // 일주일 전 대여 종료
+                lessorName: '테스트계정_2',
+              ),
+        ),
+      ).then((value) {
+        // 리뷰 작성 후 돌아왔을 때 처리 (선택사항)
+        if (value == true) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다')));
+        }
+      });
+    } else {
+      // 다른 항목들은 기존과 같이 처리
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('디버깅: $title 페이지로 이동')));
+    }
   }
 
   @override
