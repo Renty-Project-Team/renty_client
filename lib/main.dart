@@ -7,7 +7,7 @@ import 'package:renty_client/core/api_client.dart';
 import 'global_theme.dart';
 import 'bottom_menu_bar.dart';
 import 'logo_app_ber.dart';
-import 'myPage/myPageUI.dart';
+import 'myPage/myPage.dart';
 import 'post/mainBoard.dart';
 import 'search/search.dart';
 import 'chat/chat_list.dart';
@@ -72,7 +72,7 @@ class MyApp extends StatelessWidget {
         '/search': (context) => const SearchPage(),
         '/chat_list': (context) => const ChatListPage(), // 채팅 목록 페이지
         '/login': (context) => const LoginPage(),
-        '/mypage': (context) => const ProfilePage(), // 더미 마이페이지
+        '/mypage': (context) => const ProfilePage(),
       },
     );
   }

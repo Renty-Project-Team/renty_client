@@ -4,6 +4,7 @@ import 'package:renty_client/bottom_menu_bar.dart';
 import 'package:renty_client/logo_app_ber.dart'; // 로고 앱바 추가
 import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
+import 'package:renty_client/myPage/profileEdit.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -192,7 +193,35 @@ class _ProfilePageState extends State<ProfilePage> {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => _handleItemClick('프로필 수정'),
+            onTap: () async {
+              // 현재 사용자 프로필 데이터
+              ProfileData userProfile = ProfileData(
+                nickname: "테스트계정", // 실제로는 서버에서 가져온 사용자 닉네임
+                imageUrl: null, // 실제로는 서버에서 가져온 이미지 URL
+              );
+
+              // 프로필 수정 페이지로 이동하면서 데이터 전달
+              final ProfileData? result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => ProfileEditPage(initialProfile: userProfile),
+                ),
+              );
+
+              // 결과 데이터가 있으면 처리 (화면 갱신 등)
+              if (result != null) {
+                // TODO: 화면 갱신 또는 상태 업데이트
+                setState(() {
+                  // 상태 업데이트 코드
+                });
+
+                // 업데이트 성공 메시지
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('프로필이 업데이트되었습니다')));
+              }
+            },
             // 클릭 효과 색상을 연한 회색으로 변경
             splashColor: Colors.grey.withOpacity(0.3),
             highlightColor: Colors.grey.withOpacity(0.2),
