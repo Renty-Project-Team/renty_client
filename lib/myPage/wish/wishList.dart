@@ -11,6 +11,7 @@ class WishlistPage extends StatefulWidget {
 
 class _WishlistPageState extends State<WishlistPage> {
   late Future<List<Product>> _wishlistFuture;
+  bool _deletionMode = false; // 삭제 모드 on/off
 
   @override
   void initState() {
@@ -40,7 +41,22 @@ class _WishlistPageState extends State<WishlistPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('찜 목록')),
+      appBar: AppBar(
+        title: Text('찜 목록'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _deletionMode ? Icons.close : Icons.delete_outline,
+              color: _deletionMode ? Colors.red : null,
+            ),
+            onPressed: () {
+              setState(() {
+                _deletionMode = !_deletionMode;
+              });
+            },
+          )
+        ],
+      ),
       body: FutureBuilder<List<Product>>(
         future: _wishlistFuture,
         builder: (context, snapshot) {
@@ -59,17 +75,28 @@ class _WishlistPageState extends State<WishlistPage> {
               final product = wishlist[index];
               return Stack(
                 children: [
-                  ProductCard(product: product), // ✅ 재사용
-                  Positioned(
-                    right: 16,
-                    top: 12,
-                    child: IconButton(
-                      icon: Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () async {
-                        await _removeFromWishlist(product.id);
-                      },
+                  ProductCard(product: product), // 기존 카드 재사용
+                  if (_deletionMode)
+                    Positioned.fill(
+                      child: Material(
+                        color: Colors.black.withOpacity(0.05),
+                        child: InkWell(
+                          onTap: () async {
+                            await _removeFromWishlist(product.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('찜 목록에서 제거되었습니다.')),
+                            );
+                          },
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Icon(Icons.cancel, color: Colors.red),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               );
             },
