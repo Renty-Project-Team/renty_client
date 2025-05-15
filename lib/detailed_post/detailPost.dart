@@ -19,13 +19,38 @@ class DetailPage extends StatefulWidget {
 class _DetailPageState extends State<DetailPage> {
   int _currentImageIndex = 0;
   late Future<Product> _productFuture;
+  bool _isWished = false;
 
   @override
   void initState() {
     super.initState();
     _productFuture = ProductService().fetchProduct(widget.itemId);
-  }
 
+    ProductService().isWished(widget.itemId).then((isWished) {
+      setState(() {
+        _isWished = isWished;
+      });
+    });
+  }
+  Future<bool> isWished(int itemId) async {
+    final response = await ApiClient().client.get('/My/wishlist');
+
+    if (response.statusCode == 200) {
+      final List<dynamic> wishlist = response.data;
+
+      // itemId가 포함되어 있는지 확인 (int 또는 Map 타입에 따라 분기 필요)
+      return wishlist.any((item) {
+        if (item is int) {
+          return item == itemId;
+        } else if (item is Map && item.containsKey('itemId')) {
+          return item['itemId'] == itemId;
+        }
+        return false;
+      });
+    }
+
+    return false;
+  }
   // 채팅방 생성 함수
   Future<Map<String, dynamic>?> _createChatRoom(
     BuildContext context,
@@ -292,7 +317,48 @@ class _DetailPageState extends State<DetailPage> {
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
                   children: [
-                    Icon(Icons.favorite_border),
+                    IconButton(
+                      icon: Icon(
+                        _isWished ? Icons.favorite : Icons.favorite_border,
+                        color: _isWished ? Colors.red : null,
+                      ),
+                      onPressed: () async {
+                        try {
+                          if (_isWished) {
+                            await ProductService().removeFromWishlist(widget.itemId);
+                            setState(() {
+                              _isWished = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('찜 목록에서 제거되었습니다.')),
+                            );
+                          } else {
+                            await ProductService().addToWishlist(widget.itemId);
+                            setState(() {
+                              _isWished = true;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('찜 목록에 추가되었습니다.')),
+                            );
+                          }
+                        } on DioException catch (e) {
+                          if (e.response?.statusCode == 401) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('로그인이 필요합니다.')),
+                            );
+                            // Navigator.pushNamed(context, '/login');
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('요청 실패: ${e.response?.data['message'] ?? e.message}')),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('예상치 못한 오류: $e')),
+                          );
+                        }
+                      },
+                    ),
                     Spacer(),
                     ElevatedButton(
                       onPressed: () async {

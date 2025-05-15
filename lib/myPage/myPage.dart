@@ -6,6 +6,7 @@ import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/myPage/profileEdit.dart';
 import 'package:renty_client/myPage/writeReview.dart';
+import 'wish/wishList.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -50,7 +51,8 @@ class _ProfilePageState extends State<ProfilePage> {
         context,
         MaterialPageRoute(
           builder:
-              (context) => ReviewWritePage(
+              (context) =>
+              ReviewWritePage(
                 productTitle: '예제 상품 입니다',
                 productImageUrl: null, // 이미지 URL이 아직 없음
                 rentalDate: DateTime.now().subtract(
@@ -67,6 +69,15 @@ class _ProfilePageState extends State<ProfilePage> {
           ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다')));
         }
       });
+    }else if((title == '찜 목록')){
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+            (context) =>
+            WishlistPage()
+        )
+      );
     } else {
       // 다른 항목들은 기존과 같이 처리
       ScaffoldMessenger.of(
