@@ -139,28 +139,6 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
-  Future<void> _markChatAsRead(int chatRoomId) async {
-    try {
-      await _apiClient.client.post(
-        '/chat/MarkAsRead',
-        data: {'roomId': chatRoomId}, // JSON 형식으로 전송
-      );
-
-      print('채팅방 $chatRoomId 읽음 처리 완료 (서버 저장)');
-      _fetchChatRooms();
-    } catch (e) {
-      print('채팅방 읽음 처리 실패: $e');
-      setState(() {
-        for (int i = 0; i < _chatRooms.length; i++) {
-          if (_chatRooms[i]['chatRoomId'] == chatRoomId) {
-            _chatRooms[i]['unreadCount'] = 0;
-            break;
-          }
-        }
-      });
-    }
-  }
-
   List<Map<String, dynamic>> get _filteredChatRooms {
     if (_selectedFilter == '읽음') {
       return _chatRooms
@@ -274,7 +252,6 @@ class _ChatListPageState extends State<ChatListPage> {
 
     return CenterRippleEffect(
       onTap: () async {
-        await _markChatAsRead(chatRoom['chatRoomId']);
         _navigateToChatScreen(chatRoom);
       },
       onLongPress: () {
@@ -394,8 +371,6 @@ class _ChatListPageState extends State<ChatListPage> {
           )
           .then((_) async {
             if (mounted) {
-              // 채팅방을 나갈 때 읽음 처리
-              await _markChatAsRead(chatRoomId);
               // 채팅방 목록 갱신
               _fetchChatRooms();
             }

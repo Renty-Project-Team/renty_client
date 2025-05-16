@@ -4,6 +4,8 @@ import 'package:renty_client/core/token_manager.dart';
 import 'package:image_picker/image_picker.dart'; // 이미지 피커 추가
 import 'dart:io'; // File 클래스 사용
 import 'dart:math'; // sin 함수 사용
+import 'package:dio/dio.dart'; // Dio import 추가
+import 'package:renty_client/core/api_client.dart'; // API 클라이언트 import 추가
 
 // 프로필 데이터 모델 클래스
 class ProfileData {
@@ -196,7 +198,7 @@ class _ProfileEditPageState extends State<ProfileEditPage>
         false;
   }
 
-  // 프로필 저장 함수 (API 호출 부분 포함)
+  // 프로필 저장 함수 (API 호출 부분 구현)
   void _saveProfile() async {
     // 닉네임 공백 검증
     if (_nicknameController.text.trim().isEmpty) {
@@ -220,44 +222,51 @@ class _ProfileEditPageState extends State<ProfileEditPage>
       // 저장 중임을 표시
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('프로필 정보를 저장 중입니다...')));
+      ).showSnackBar(const SnackBar(content: Text('프로필 정보를 저장 중입니다...')));
 
       // API 요청을 위한 데이터 준비
       String nickname = _nicknameController.text.trim();
 
-      // ======= API 호출 부분 (나중에 구현) =======
-      // TODO: 실제 API 클라이언트 부분 활성화
-      /*
       // API 클라이언트 인스턴스 생성
-      // final apiClient = ApiClient();
+      final ApiClient apiClient = ApiClient();
+      Map<String, dynamic> requestData = {"userName": nickname};
 
       // 이미지 업로드와 함께 프로필 정보 업데이트
       if (_selectedImage != null) {
         final imageFile = File(_selectedImage!.path);
 
         // FormData 생성
-        // var formData = FormData.fromMap({
-        //   "profileImage": await MultipartFile.fromFile(
-        //     imageFile.path,
-        //     filename: imageFile.path.split('/').last
-        //   ),
-        //   "nickname": nickname,
-        // });
+        final formData = FormData.fromMap({
+          "userName": nickname,
+          "profileImage": await MultipartFile.fromFile(
+            imageFile.path,
+            filename: imageFile.path.split('/').last,
+          ),
+        });
 
-        // API 호출
-        // final response = await apiClient.post('/api/user/profile', data: formData);
+        // PUT 또는 PATCH 요청 (API 명세에 따라 선택)
+        final response = await apiClient.client.put(
+          '/my/profile',
+          data: formData,
+        );
+
+        print('API 응답: ${response.statusCode} - ${response.data}');
       }
       // 이미지 없이 닉네임만 업데이트
       else {
-        // final response = await apiClient.post('/api/user/profile', data: {
-        //   "nickname": nickname,
-        // });
+        final response = await apiClient.client.put(
+          '/my/profile',
+          data: {"userName": nickname},
+        );
+
+        print('API 응답: ${response.statusCode} - ${response.data}');
       }
-      */
-      // ========================================
 
       // 성공 메시지
       ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('프로필이 성공적으로 저장되었습니다')));
 
       // 수정된 데이터를 이전 화면으로 반환
       final updatedProfile = ProfileData(
@@ -273,6 +282,7 @@ class _ProfileEditPageState extends State<ProfileEditPage>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('프로필 저장 중 오류가 발생했습니다: $e')));
+      print('프로필 저장 오류: $e');
     }
   }
 

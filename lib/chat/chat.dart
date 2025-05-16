@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart'; // 로컬 스토리지 사용
 import '../core/api_client.dart'; // API 클라이언트 추가
 import '../chat/signalr_service.dart'; // SignalR 서비스 추가
+import '../chat/trade_button_service.dart';
 
 // 앱의 루트 위젯
 class Chating extends StatefulWidget {
@@ -113,6 +114,7 @@ class _ChatScreenState extends State<ChatScreen>
   String? _lastReadAt; // 마지막으로 읽은 시간
   bool _isLoading = true; // 로딩 상태
   String _callerName = ''; // 현재 발신자(본인) 이름 - 추가
+  int _itemId = 0;
 
   // 상품 정보 관리 변수
   late Product _product;
@@ -166,9 +168,6 @@ class _ChatScreenState extends State<ChatScreen>
           deposit: "5000",
         );
 
-    // 채팅방 진입 시 읽음 처리
-    _markChatAsRead();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _init();
     });
@@ -178,7 +177,6 @@ class _ChatScreenState extends State<ChatScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     // 채팅방이 활성화될 때마다 읽음 처리
-    _markChatAsRead();
   }
 
   Future<void> _init() async {
@@ -279,6 +277,9 @@ class _ChatScreenState extends State<ChatScreen>
         if (data['offer'] != null) {
           print('DEBUG: offer 데이터: ${data['offer']}'); // 디버그 로그
 
+          _itemId = data['offer']['itemId'] ?? 0;
+          print('DEBUG: 상품 ID: $_itemId');
+
           // imageUrl 가져오기
           final imageUrl = data['offer']['imageUrl'];
           print('DEBUG: 원본 이미지 URL: $imageUrl');
@@ -328,8 +329,10 @@ class _ChatScreenState extends State<ChatScreen>
                 // 발신자 이름이 본인 이름과 같은지 비교하여 메시지 주인 구분
                 final senderName = msg['senderName'] ?? '';
                 final isSenderMe = senderName == _callerName;
-                
-                print('DEBUG: 메시지 로드 - 발신자: $senderName, 현재 사용자: $_callerName, 내 메시지 여부: $isSenderMe');
+
+                print(
+                  'DEBUG: 메시지 로드 - 발신자: $senderName, 현재 사용자: $_callerName, 내 메시지 여부: $isSenderMe',
+                );
 
                 return ChatMessage(
                   text: msg['content'] ?? '',
@@ -560,9 +563,7 @@ class _ChatScreenState extends State<ChatScreen>
         final targetPosition =
             estimatedItemPosition -
             (screenHeight -
-                (appBarHeight +
-                    _productInfoHeight +
-                    _messageItemHeight - 200));
+                (appBarHeight + _productInfoHeight + _messageItemHeight - 200));
 
         // 유효한 스크롤 범위 내로 제한
         final clampedPosition = targetPosition.clamp(0.0, maxScroll);
@@ -651,20 +652,26 @@ class _ChatScreenState extends State<ChatScreen>
 
   // 오버레이 페이드아웃 효과와 함께 제거 - 수정
   void _fadeOutOverlay() {
-    if (_overlayEntry != null && mounted) {
+    if (_overlayEntry != null && _fadeAnimController != null && mounted) {
       // 페이드아웃 애니메이션 시작
-      _fadeAnimController?.forward().then((_) {
-        // 애니메이션 완료 후에만 오버레이 제거
-        _removeOverlay();
+      _fadeAnimController!.forward().then((_) {
+        // 위젯이 아직 마운트 상태인 경우에만 오버레이 제거
+        if (mounted) {
+          _removeOverlay();
+        }
       });
     }
   }
 
   // 오버레이 즉시 제거
   void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-    _fadeAnimController?.reset();
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    }
+    if (_fadeAnimController != null) {
+      _fadeAnimController!.reset();
+    }
   }
 
   // 상품 수정 모달 표시 함수
@@ -753,22 +760,31 @@ class _ChatScreenState extends State<ChatScreen>
                               color: Colors.grey[300],
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: _product.imageUrl != null && _product.imageUrl!.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.network(
-                                      _product.imageUrl!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        print('이미지 로드 오류: $error');
-                                        return Icon(
-                                          Icons.image_not_supported,
-                                          color: Colors.grey[500],
-                                        );
-                                      },
+                            child:
+                                _product.imageUrl != null &&
+                                        _product.imageUrl!.isNotEmpty
+                                    ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Image.network(
+                                        _product.imageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          print('이미지 로드 오류: $error');
+                                          return Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.grey[500],
+                                          );
+                                        },
+                                      ),
+                                    )
+                                    : Icon(
+                                      Icons.image,
+                                      color: Colors.grey[500],
                                     ),
-                                  )
-                                : Icon(Icons.image, color: Colors.grey[500]),
                           ),
                           const SizedBox(width: 24), // 간격 증가
                           // 상품 제목 (수정 불가 - 표시만 함)
@@ -1058,42 +1074,94 @@ class _ChatScreenState extends State<ChatScreen>
 
                                       Navigator.of(context).pop(); // 먼저 모달 닫기
 
-                                      setState(() {
-                                        _product = Product(
-                                          title: title,
-                                          price: price,
-                                          priceUnit:
-                                              serverPriceUnit, // 영어 단위로 저장
-                                          deposit: deposit,
-                                          imageUrl:
-                                              _product.imageUrl, // 이미지 URL 유지
-                                        );
+                                      // 구매자 이름 찾기 (채팅방의 상대방)
+                                      String buyerName = '';
+                                      for (var user in _users) {
+                                        if (user['name'] != _callerName) {
+                                          buyerName = user['name'];
+                                          break;
+                                        }
+                                      }
 
-                                        // 상품 수정 완료 메시지 추가
-                                        _messages.add(
-                                          ChatMessage(
-                                            text:
-                                                "상품 정보를 수정했습니다.\n가격 : $serverPriceUnit $price원\n보증금 : $deposit원",
-                                            isMe: true,
-                                            timestamp: DateTime.now(),
-                                            senderName: _callerName, // 발신자 이름 추가
-                                          ),
-                                        );
-                                      });
+                                      // TradeButtonService의 updateProductOffer 함수 호출
+                                      final tradeButtonService =
+                                          TradeButtonService();
+                                      tradeButtonService.updateProductOffer(
+                                        itemId: _itemId,
+                                        title: title,
+                                        price: price,
+                                        priceUnit: serverPriceUnit,
+                                        deposit: deposit,
+                                        buyerName: buyerName,
+                                        // 수정하기 버튼 onPressed 콜백에서 onSuccess 부분 수정
+                                        onSuccess: (message) {
+                                          // 위젯이 여전히 마운트 상태인지 확인
+                                          if (mounted) {
+                                            // 성공 시 처리
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(content: Text(message)),
+                                            );
 
-                                      // 스크롤을 맨 아래로 이동
-                                      Future.delayed(
-                                        const Duration(milliseconds: 100),
-                                        () {
-                                          _scrollController.animateTo(
-                                            _scrollController
-                                                .position
-                                                .maxScrollExtent,
-                                            duration: const Duration(
-                                              milliseconds: 300,
-                                            ),
-                                            curve: Curves.easeOut,
-                                          );
+                                            // 콤마 제거하고 순수 숫자값만 저장
+                                            final cleanPrice = price.replaceAll(
+                                              ',',
+                                              '',
+                                            );
+                                            final cleanDeposit = deposit
+                                                .replaceAll(',', '');
+
+                                            // 상품 정보 업데이트 - WidgetsBinding을 사용하여 다음 프레임에서 확실히 업데이트
+                                            WidgetsBinding.instance.addPostFrameCallback((
+                                              _,
+                                            ) {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _product = Product(
+                                                    title: title,
+                                                    price:
+                                                        cleanPrice, // 깨끗한 숫자값만 저장
+                                                    priceUnit: serverPriceUnit,
+                                                    deposit:
+                                                        cleanDeposit, // 깨끗한 숫자값만 저장
+                                                    imageUrl: _product.imageUrl,
+                                                  );
+
+                                                  // 상품 수정 완료 메시지 추가
+                                                  _messages.add(
+                                                    ChatMessage(
+                                                      text:
+                                                          "상품 정보를 수정했습니다.\n가격: ${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(cleanPrice)}원\n보증금: ${_formatPrice(cleanDeposit)}원",
+                                                      isMe: true,
+                                                      timestamp: DateTime.now(),
+                                                      senderName: _callerName,
+                                                    ),
+                                                  );
+                                                });
+
+                                                // 스크롤을 맨 아래로 이동
+                                                _scrollToBottom();
+
+                                                // 디버깅용 로그
+                                                print(
+                                                  '상품 정보 업데이트됨: ${_product.price}, ${_product.deposit}, ${_product.priceUnit}',
+                                                );
+                                              }
+                                            });
+                                          }
+                                        },
+                                        onError: (errorMessage) {
+                                          // 오류 시 처리 - 여기도 마찬가지로 mounted 체크 추가
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(errorMessage),
+                                              ),
+                                            );
+                                          }
                                         },
                                       );
                                     }
@@ -1153,209 +1221,212 @@ class _ChatScreenState extends State<ChatScreen>
       child: Scaffold(
         appBar: _buildAppBar(),
         backgroundColor: Colors.white,
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  _buildProductInfo(),
-                  Expanded(
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: ColorScheme.fromSwatch().copyWith(
-                          secondary: Colors.white,
+        body:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    _buildProductInfo(),
+                    Expanded(
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.fromSwatch().copyWith(
+                            secondary: Colors.white,
+                          ),
                         ),
-                      ),
-                      child: Container(
-                        color: Colors.white,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(16.0),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, index) {
-                            final showTimestamp =
-                                index == _messages.length - 1 ||
-                                _messages[index].timestamp.minute !=
-                                    _messages[index + 1].timestamp.minute;
+                        child: Container(
+                          color: Colors.white,
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.all(16.0),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final showTimestamp =
+                                  index == _messages.length - 1 ||
+                                  _messages[index].timestamp.minute !=
+                                      _messages[index + 1].timestamp.minute;
 
-                            bool showProfile = false;
-                            if (!_messages[index].isMe) {
-                              if (index == 0) {
-                                showProfile = true;
-                              } else {
-                                final prevMessage = _messages[index - 1];
-                                if (prevMessage.timestamp.minute !=
-                                        _messages[index].timestamp.minute ||
-                                    prevMessage.isMe) {
+                              bool showProfile = false;
+                              if (!_messages[index].isMe) {
+                                if (index == 0) {
                                   showProfile = true;
+                                } else {
+                                  final prevMessage = _messages[index - 1];
+                                  if (prevMessage.timestamp.minute !=
+                                          _messages[index].timestamp.minute ||
+                                      prevMessage.isMe) {
+                                    showProfile = true;
+                                  }
                                 }
                               }
-                            }
 
-                            int? matchPosition;
-                            int? matchLength;
-                            bool isCurrentSearchResult = false;
+                              int? matchPosition;
+                              int? matchLength;
+                              bool isCurrentSearchResult = false;
 
-                            if (_isSearchMode &&
-                                _currentSearchIndex != -1 &&
-                                _searchResults.isNotEmpty) {
-                              final currentResult =
-                                  _searchResults[_currentSearchIndex];
-                              if (currentResult.messageIndex == index) {
-                                isCurrentSearchResult = true;
-                                matchPosition =
-                                    currentResult.matchPositions.first;
-                                matchLength = currentResult.matchLengths.first;
+                              if (_isSearchMode &&
+                                  _currentSearchIndex != -1 &&
+                                  _searchResults.isNotEmpty) {
+                                final currentResult =
+                                    _searchResults[_currentSearchIndex];
+                                if (currentResult.messageIndex == index) {
+                                  isCurrentSearchResult = true;
+                                  matchPosition =
+                                      currentResult.matchPositions.first;
+                                  matchLength =
+                                      currentResult.matchLengths.first;
+                                }
                               }
-                            }
 
-                            return _buildMessage(
-                              _messages[index],
-                              showTimestamp: showTimestamp,
-                              isCurrentSearchResult: isCurrentSearchResult,
-                              matchPosition: matchPosition,
-                              matchLength: matchLength,
-                              showProfile: showProfile,
-                            );
-                          },
+                              return _buildMessage(
+                                _messages[index],
+                                showTimestamp: showTimestamp,
+                                isCurrentSearchResult: isCurrentSearchResult,
+                                matchPosition: matchPosition,
+                                matchLength: matchLength,
+                                showProfile: showProfile,
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(
-                        top: BorderSide(
-                          color: Colors.grey[200]!,
-                          width: 1,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Colors.grey[200]!, width: 1),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 4,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        if (_isAttachmentOpen)
-                          Container(
-                            height: 100,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.grey[200]!,
-                                  width: 1,
+                      child: Column(
+                        children: [
+                          if (_isAttachmentOpen)
+                            Container(
+                              height: 100,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Colors.grey[200]!,
+                                    width: 1,
+                                  ),
                                 ),
                               ),
+                              child: Row(
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      // TODO: 이미지 첨부 기능 구현
+                                    },
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[100],
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            Icons.image,
+                                            color: Colors.grey[400],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '이미지',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                              vertical: 8.0,
                             ),
                             child: Row(
                               children: [
-                                InkWell(
-                                  onTap: () {
-                                    // TODO: 이미지 첨부 기능 구현
+                                IconButton(
+                                  icon: Icon(
+                                    _isAttachmentOpen ? Icons.close : Icons.add,
+                                    color: Colors.grey[600],
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _isAttachmentOpen = !_isAttachmentOpen;
+                                    });
                                   },
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[100],
-                                          borderRadius: BorderRadius.circular(8),
+                                ),
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: TextField(
+                                      controller: _textController,
+                                      decoration: InputDecoration(
+                                        hintText: '메시지 입력',
+                                        hintStyle: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 14,
                                         ),
-                                        child: Icon(
-                                          Icons.image,
-                                          color: Colors.grey[400],
-                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 12,
+                                            ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '이미지',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF3154FF),
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(
+                                      Icons.send,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    onPressed: _handleSubmitted,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8.0,
-                            vertical: 8.0,
-                          ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  _isAttachmentOpen ? Icons.close : Icons.add,
-                                  color: Colors.grey[600],
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isAttachmentOpen = !_isAttachmentOpen;
-                                  });
-                                },
-                              ),
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  child: TextField(
-                                    controller: _textController,
-                                    decoration: InputDecoration(
-                                      hintText: '메시지 입력',
-                                      hintStyle: TextStyle(
-                                        color: Colors.grey[500],
-                                        fontSize: 14,
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF3154FF),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.send,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                  onPressed: _handleSubmitted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
       ),
     );
   }
@@ -1561,10 +1632,7 @@ class _ChatScreenState extends State<ChatScreen>
                 // 보증금
                 Text(
                   '보증금 ${_formatPrice(_product.deposit)}원',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -1574,7 +1642,16 @@ class _ChatScreenState extends State<ChatScreen>
             onPressed:
                 _isSeller
                     ? _showProductEditModal
-                    : null, // API에서 가져온 isSeller 기반으로 판매자만 상품 수정 가능
+                    : () {
+                      // TradeButtonService의 구매하기 모달 활용
+                      final tradeButtonService = TradeButtonService();
+                      tradeButtonService.showPurchaseModal(
+                        context,
+                        _product,
+                        _callerName,
+                        _itemId
+                      );
+                    },
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFF3154FF), // #3154FF로 변경
               foregroundColor: Colors.white, // 버튼 텍스트 색상
@@ -1930,6 +2007,12 @@ class _ChatScreenState extends State<ChatScreen>
 
   @override
   void dispose() {
+    // 오버레이 안전하게 제거
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    }
+
     // SignalR 관련 자원 해제
     _messageSubscription?.cancel();
     _fadeAnimController?.dispose();
@@ -1937,19 +2020,6 @@ class _ChatScreenState extends State<ChatScreen>
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  // 채팅방 읽음 처리 함수
-  Future<void> _markChatAsRead() async {
-    try {
-      await _apiClient.client.post(
-        '/chat/MarkAsRead',
-        data: {'roomId': widget.chatRoomId},
-      );
-      print('채팅방 ${widget.chatRoomId} 읽음 처리 완료');
-    } catch (e) {
-      print('채팅방 읽음 처리 실패: $e');
-    }
   }
 }
 
