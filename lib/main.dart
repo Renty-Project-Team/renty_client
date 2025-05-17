@@ -11,6 +11,8 @@ import 'myPage/myPage.dart';
 import 'post/mainBoard.dart';
 import 'search/search.dart';
 import 'chat/chat_list.dart';
+import 'overlayAnimation.dart';
+
 
 final ApiClient apiClient = ApiClient();
 
@@ -22,7 +24,7 @@ void main() async {
   await apiClient.initialize();
   runApp(const MyApp());
 }
-
+OverlayEntry? _floatingActionOverlay;
 Future<void> navigateBarAction(BuildContext context, int index) async {
   if (index == 0) {
     // 홈 탭 클릭 시
@@ -30,12 +32,10 @@ Future<void> navigateBarAction(BuildContext context, int index) async {
   } else if (index == 1) {
     Navigator.pushNamed(context, '/search');
   } else if (index == 2) {
-    // 등록 탭 클릭 시
     if (await TokenManager.getToken() != null) {
-      // 로컬에 토큰 쿠키가 있는지 확인
-      Navigator.pushNamed(context, '/product_upload'); // 등록 화면으로 이동
+      FloatingUploadController.show(context);
     } else {
-      Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
+      Navigator.pushNamed(context, '/login');
     }
   } else if (index == 3) {
     // 채팅 탭 클릭 시

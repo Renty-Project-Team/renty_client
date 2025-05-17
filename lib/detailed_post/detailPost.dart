@@ -237,7 +237,14 @@ class _DetailPageState extends State<DetailPage> {
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(child: Icon(Icons.person)),
+                            CircleAvatar(
+                              backgroundImage: (product.userProfileImage?.isNotEmpty ?? false)
+                                  ? NetworkImage('${apiClient.getDomain}${product.userProfileImage}')
+                                  : null,
+                              child: (product.userProfileImage?.isEmpty ?? true)
+                                  ? Icon(Icons.person)
+                                  : null,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               product.userName,
