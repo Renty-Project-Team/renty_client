@@ -48,12 +48,14 @@ class TradeButtonService {
     required BuildContext context,
     required String callerName,
     required int itemId,
+    required int tradeOfferVersion,
   }) {
     return TextButton(
       onPressed:
           isSeller
               ? onProductEdit
-              : () => showPurchaseModal(context, product, callerName, itemId),
+              : () => showPurchaseModal(context, product, callerName, itemId, 
+                  tradeOfferVersion: tradeOfferVersion),
       style: TextButton.styleFrom(
         backgroundColor: const Color(0xFF3154FF),
         foregroundColor: Colors.white,
@@ -72,6 +74,7 @@ class TradeButtonService {
     int itemId, {
     DateTime? startDate, // 판매자가 설정한 시작일
     DateTime? endDate, // 판매자가 설정한 종료일
+    required int tradeOfferVersion,
   }) {
     // 가격 문자열을 적절하게 숫자로 변환하는 부분 수정
     int price;
@@ -357,16 +360,16 @@ class TradeButtonService {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder:
-                                      (context) => PaymentConfirmPage(
-                                        product: product,
-                                        itemId: itemId,
-                                        buyerName: callerName,
-                                        startDate: borrowStartDate,
-                                        endDate: returnDate,
-                                        totalPrice: totalPrice,
-                                        deposit: deposit,
-                                      ),
+                                  builder: (context) => PaymentConfirmPage(
+                                    product: product,
+                                    itemId: itemId,
+                                    buyerName: callerName,
+                                    startDate: borrowStartDate,
+                                    endDate: returnDate,
+                                    totalPrice: totalPrice,
+                                    deposit: deposit,
+                                    tradeOfferVersion: tradeOfferVersion, // 추가: 버전 정보 전달
+                                  ),
                                 ),
                               );
                             },

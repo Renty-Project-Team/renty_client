@@ -13,7 +13,9 @@ import 'package:renty_client/myPage/noticeList.dart'; // 공지사항 페이지 
 import 'package:renty_client/myPage/faqPage.dart'; // FAQ 페이지 추가
 import 'package:renty_client/myPage/inquiryChatbot.dart'; // 1:1 문의 챗봇 페이지 추가
 import 'package:renty_client/myPage/incomePage.dart'; // 수익금 페이지 추가
-import 'package:renty_client/myPage/myPostBoard.dart'; // 내 대여 게시글 페이지 추가가
+import 'package:renty_client/myPage/myPostBoard.dart';
+
+import 'rental_list_page.dart'; // 내 대여 게시글 페이지 추가가
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -151,28 +153,21 @@ class _ProfilePageState extends State<ProfilePage> {
         MaterialPageRoute(builder: (context) => const MyPostListPage()),
       );
     } else if (title == '대여중인 제품목록') {
-      // 기존 코드 유지
+      // 대여중인 물품 페이지로 이동
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => ReviewWritePage(
-                productTitle: 'Missing Product', // 대여중인 제품 제목
-                productImageUrl: null, // 이미지 URL이 아직 없음
-                rentalDate: DateTime.now().subtract(
-                  const Duration(days: 7),
-                ), // 일주일 전 대여 종료
-                lessorName: '알 수 없음',
-              ),
+          builder: (context) => const RentalListPage(showActiveOnly: true),
         ),
-      ).then((value) {
-        // 리뷰 작성 후 돌아왔을 때 처리 (선택사항)
-        if (value == true) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다')));
-        }
-      });
+      );
+    } else if (title == '결제완료 물품') {
+      // 결제완료 물품 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const RentalListPage(showActiveOnly: false),
+        ),
+      );
     } else if (title == '앱 정보') {
       // 앱 정보 페이지로 이동
       Navigator.push(

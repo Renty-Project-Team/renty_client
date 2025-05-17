@@ -12,6 +12,7 @@ class PaymentConfirmPage extends StatelessWidget {
   final DateTime endDate;
   final int totalPrice;
   final int deposit;
+  final int tradeOfferVersion; // 추가된 필드
 
   const PaymentConfirmPage({
     Key? key,
@@ -22,6 +23,7 @@ class PaymentConfirmPage extends StatelessWidget {
     required this.endDate,
     required this.totalPrice,
     required this.deposit,
+    required this.tradeOfferVersion, // 필수 파라미터로 추가
   }) : super(key: key);
 
   @override
@@ -77,22 +79,25 @@ class PaymentConfirmPage extends StatelessWidget {
                               color: Colors.grey[200],
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      product.imageUrl!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Icon(
-                                        Icons.image_not_supported,
-                                        color: Colors.grey[500],
+                            child:
+                                product.imageUrl != null &&
+                                        product.imageUrl!.isNotEmpty
+                                    ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        product.imageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (_, __, ___) => Icon(
+                                              Icons.image_not_supported,
+                                              color: Colors.grey[500],
+                                            ),
                                       ),
+                                    )
+                                    : const Icon(
+                                      Icons.image,
+                                      color: Colors.grey,
                                     ),
-                                  )
-                                : const Icon(
-                                    Icons.image,
-                                    color: Colors.grey,
-                                  ),
                           ),
                           const SizedBox(width: 16),
                           // 상품 정보
@@ -124,19 +129,19 @@ class PaymentConfirmPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 24),
 
                     // 결제 정보 섹션
                     const Text(
                       '결제 정보',
                       style: TextStyle(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.bold
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // 결제 정보 내용
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -147,14 +152,23 @@ class PaymentConfirmPage extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildPaymentInfoRow('대여 기간', '${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}'),
-                          const Divider(height: 24),
-                          _buildPaymentInfoRow('대여 비용', '${numberFormat.format(totalPrice)}원'),
-                          const SizedBox(height: 8),
-                          _buildPaymentInfoRow('보증금', '${numberFormat.format(deposit)}원'),
+                          _buildPaymentInfoRow(
+                            '대여 기간',
+                            '${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}',
+                          ),
                           const Divider(height: 24),
                           _buildPaymentInfoRow(
-                            '총 결제 금액', 
+                            '대여 비용',
+                            '${numberFormat.format(totalPrice)}원',
+                          ),
+                          const SizedBox(height: 8),
+                          _buildPaymentInfoRow(
+                            '보증금',
+                            '${numberFormat.format(deposit)}원',
+                          ),
+                          const Divider(height: 24),
+                          _buildPaymentInfoRow(
+                            '총 결제 금액',
                             '${numberFormat.format(totalAmount)}원',
                             titleStyle: const TextStyle(
                               fontSize: 16,
@@ -169,9 +183,9 @@ class PaymentConfirmPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // 안내 사항
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -184,7 +198,11 @@ class PaymentConfirmPage extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.info_outline, size: 18, color: Color(0xFF3154FF)),
+                              const Icon(
+                                Icons.info_outline,
+                                size: 18,
+                                color: Color(0xFF3154FF),
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 '안내 사항',
@@ -227,7 +245,7 @@ class PaymentConfirmPage extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // 결제하기 버튼
             Container(
               padding: const EdgeInsets.all(16),
@@ -247,15 +265,18 @@ class PaymentConfirmPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PaymentMethodPage(
-                          product: product,
-                          itemId: itemId,
-                          buyerName: buyerName,
-                          startDate: startDate,
-                          endDate: endDate,
-                          totalPrice: totalPrice,
-                          deposit: deposit,
-                        ),
+                        builder:
+                            (context) => PaymentMethodPage(
+                              product: product,
+                              itemId: itemId,
+                              buyerName: buyerName,
+                              sellerName: "판매자", // 실제로는 API에서 받아온 판매자 정보 사용
+                              startDate: startDate,
+                              endDate: endDate,
+                              totalPrice: totalPrice,
+                              deposit: deposit,
+                              tradeOfferVersion: tradeOfferVersion, // 버전 정보 추가
+                            ),
                       ),
                     );
                   },
@@ -291,7 +312,7 @@ class PaymentConfirmPage extends StatelessWidget {
 
   // 결제 정보 행 위젯
   Widget _buildPaymentInfoRow(
-    String title, 
+    String title,
     String value, {
     TextStyle? titleStyle,
     TextStyle? valueStyle,
@@ -305,7 +326,9 @@ class PaymentConfirmPage extends StatelessWidget {
         ),
         Text(
           value,
-          style: valueStyle ?? const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style:
+              valueStyle ??
+              const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ],
     );

@@ -106,7 +106,6 @@ class _ChatScreenState extends State<ChatScreen>
   final ApiClient _apiClient = ApiClient(); // API 클라이언트 인스턴스
   final SignalRService _signalRService = SignalRService();
   StreamSubscription<ChatMessage>? _messageSubscription;
-  
 
   // 채팅방 정보
   bool _isSeller = false; // 판매자 여부
@@ -115,10 +114,10 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isLoading = true; // 로딩 상태
   String _callerName = ''; // 현재 발신자(본인) 이름 - 추가
   int _itemId = 0;
+  int _tradeOfferVersion = 0; // 추가: 거래 오퍼 버전 저장 변수
   DateTime? _productStartDate;
   DateTime? _productEndDate;
   OverlayState? _cachedOverlay;
-  
 
   // 상품 정보 관리 변수
   late Product _product;
@@ -268,6 +267,8 @@ class _ChatScreenState extends State<ChatScreen>
     final offerData = data['offer'];
     if (offerData == null) return;
 
+    _tradeOfferVersion = offerData['version'] ?? _tradeOfferVersion;
+
     // 이미지 URL 처리
     String? fullImageUrl;
     final imageUrl = offerData['imageUrl'];
@@ -397,6 +398,9 @@ class _ChatScreenState extends State<ChatScreen>
           _itemId = data['offer']['itemId'] ?? 0;
           print('DEBUG: 상품 ID: $_itemId');
 
+          _tradeOfferVersion = data['offer']['version'] ?? 0;
+          print('DEBUG: 버전 정보: $_tradeOfferVersion');
+
           // imageUrl 가져오기
           final imageUrl = data['offer']['imageUrl'];
           print('DEBUG: 원본 이미지 URL: $imageUrl');
@@ -410,6 +414,11 @@ class _ChatScreenState extends State<ChatScreen>
             fullImageUrl = '${apiClient.getDomain}$imageUrl';
             print('DEBUG: 변환된 이미지 URL: $fullImageUrl');
           }
+
+          // 여기에 디버깅 코드 추가 ★
+          print('==== 채팅방 오퍼 데이터 ====');
+          print('itemId: $_itemId');
+          print('version: $_tradeOfferVersion');
 
           // 날짜 정보 추출 및 저장
           if (data['offer']['borrowStartAt'] != null) {
@@ -2028,6 +2037,7 @@ class _ChatScreenState extends State<ChatScreen>
                         _itemId,
                         startDate: _productStartDate,
                         endDate: _productEndDate,
+                        tradeOfferVersion: _tradeOfferVersion,
                       );
                     },
             style: TextButton.styleFrom(
@@ -2387,17 +2397,17 @@ class _ChatScreenState extends State<ChatScreen>
   void dispose() {
     // 타이머 정리
     _hideTimer?.cancel();
-    
+
     // SignalR 관련 자원 해제
     _messageSubscription?.cancel();
     _signalRService.registerTradeOfferUpdateHandler(null);
-    
+
     // 컨트롤러 정리
     _fadeAnimController?.dispose();
     _searchController.dispose();
     _textController.dispose();
     _scrollController.dispose();
-    
+
     super.dispose();
   }
 }
