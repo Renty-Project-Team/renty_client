@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import 'chat.dart';
+import '../payment/payment_confirm_page.dart';
 
 class TradeOfferRequest {
   final int itemId;
@@ -349,47 +350,25 @@ class TradeButtonService {
                         Expanded(
                           child: TextButton(
                             onPressed: () {
-                              // 선택한 날짜 포맷팅
-                              String startDateStr = DateFormat(
-                                'yyyy-MM-ddTHH:mm:ss.000Z',
-                              ).format(borrowStartDate);
-                              String endDateStr = DateFormat(
-                                'yyyy-MM-ddTHH:mm:ss.000Z',
-                              ).format(returnDate);
+                              // 모달 닫기
+                              Navigator.pop(context);
 
-                              // 채팅방에 메시지 추가
-                              // 대여 요청 메시지 생성
-                              final message =
-                                  "대여 요청이 전송되었습니다.\n대여 기간: ${dateFormat.format(borrowStartDate)} ~ ${dateFormat.format(returnDate)}\n총 가격: ${NumberFormat('#,###').format(totalPrice)}원";
-
-                              // 채팅 메시지 등록하기 위해 컨텍스트를 통해 ChatScreen 상태 접근
-                              Navigator.pop(context); // 모달 닫기
-
-                              // API 요청 실행
-                              sendTradeOffer(
-                                itemId: itemId,
-                                buyerName: callerName,
-                                price: price.toString(),
-                                priceUnit: _convertToServerPriceUnit(
-                                  product.priceUnit,
+                              // 결제 확인 페이지로 이동
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => PaymentConfirmPage(
+                                        product: product,
+                                        itemId: itemId,
+                                        buyerName: callerName,
+                                        startDate: borrowStartDate,
+                                        endDate: returnDate,
+                                        totalPrice: totalPrice,
+                                        deposit: deposit,
+                                      ),
                                 ),
-                                deposit: deposit.toString(),
-                                borrowStartAt: startDateStr,
-                                returnAt: endDateStr,
-                                onError: (errorMessage) {
-                                  // 에러 메시지 표시
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(errorMessage)),
-                                  );
-                                },
-                              ).then((_) {
-                                // ChatScreen의 _sendMessage 함수 호출하는 방법
-                                // 채팅방의 상태를 가져와서 메시지 추가
-                                // 알림을 통해 사용자에게 결과 표시
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(message)),
-                                );
-                              });
+                              );
                             },
                             style: TextButton.styleFrom(
                               backgroundColor: const Color(0xFF3154FF),
@@ -402,6 +381,7 @@ class TradeButtonService {
                             child: const Text('결제하기'),
                           ),
                         ),
+                        const SizedBox(width: 16),
                       ],
                     ),
                   ],
