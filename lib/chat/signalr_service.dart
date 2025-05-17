@@ -10,6 +10,8 @@ import '../core/token_manager.dart';
 import '../core/api_client.dart';
 import 'chat.dart';
 
+typedef TradeOfferUpdateHandler = void Function(Map<String, dynamic> data);
+
 class SignalRService {
   // 싱글톤 패턴 구현
   static final SignalRService _instance = SignalRService._internal();
@@ -39,6 +41,16 @@ class SignalRService {
   // 메시지 캐시 (채팅방 ID를 키로 사용)
   final Map<int, List<ChatMessage>> _messageCache = {};
 
+  // 상품 정보 업데이트 알림 처리 함수 타입 정의
+
+  // 상품 정보 업데이트 핸들러
+  TradeOfferUpdateHandler? _tradeOfferUpdateHandler;
+
+  // 상품 정보 업데이트 핸들러 등록 함수
+  void registerTradeOfferUpdateHandler(TradeOfferUpdateHandler? handler) {
+    _tradeOfferUpdateHandler = handler;
+  }
+
   // 초기화 함수
   Future<void> initialize() async {
     if (_hubConnection != null) return;
@@ -58,7 +70,8 @@ class SignalRService {
       final httpConnectionOptions = HttpConnectionOptions(
         logger: Logger("SignalRLogger"),
         logMessageContent: true,
-        accessTokenFactory: () async => await TokenManager.getToken() ?? "", // 토큰을 가져오는 비동기 함수
+        accessTokenFactory:
+            () async => await TokenManager.getToken() ?? "", // 토큰을 가져오는 비동기 함수
       );
 
       // 허브 연결 객체 생성
@@ -132,6 +145,23 @@ class SignalRService {
     _hubConnection?.onclose(({error}) {
       _isConnected = false;
       print('SignalR 연결 종료: ${error?.toString() ?? "정상 종료"}');
+    });
+
+    // 상품 정보 업데이트 알림 처리
+    _hubConnection?.on("ReceiveTradeOfferUpdate", (arguments) {
+      if (arguments == null || arguments.isEmpty) return;
+
+      try {
+        final data = arguments[0] as Map<String, dynamic>;
+        print('상품 정보 업데이트 알림 수신: $data');
+
+        // 등록된 핸들러가 있으면 호출
+        if (_tradeOfferUpdateHandler != null) {
+          _tradeOfferUpdateHandler!(data);
+        }
+      } catch (e) {
+        print('상품 정보 업데이트 알림 처리 오류: $e');
+      }
     });
   }
 
@@ -341,5 +371,6 @@ class SignalRService {
   void dispose() {
     disconnect();
     _messageStreamController.close();
+    _tradeOfferUpdateHandler = null; // 핸들러 참조 제거
   }
 }

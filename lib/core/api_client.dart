@@ -14,7 +14,8 @@ class ApiClient {
   bool _isInitialized = false;
 
   // 도메인
-  static const String domain = "https://deciding-silkworm-set.ngrok-free.app";
+  static const String domain =
+      "http://138.2.125.12:8086"; //"https://deciding-silkworm-set.ngrok-free.app";
   //orcale live = "http://138.2.125.12:8086"
   // static const String domain = "http://localhost:8088";
   //default server = https://deciding-silkworm-set.ngrok-free.app

@@ -106,6 +106,7 @@ class _ChatScreenState extends State<ChatScreen>
   final ApiClient _apiClient = ApiClient(); // API 클라이언트 인스턴스
   final SignalRService _signalRService = SignalRService();
   StreamSubscription<ChatMessage>? _messageSubscription;
+  
 
   // 채팅방 정보
   bool _isSeller = false; // 판매자 여부
@@ -116,6 +117,8 @@ class _ChatScreenState extends State<ChatScreen>
   int _itemId = 0;
   DateTime? _productStartDate;
   DateTime? _productEndDate;
+  OverlayState? _cachedOverlay;
+  
 
   // 상품 정보 관리 변수
   late Product _product;
@@ -143,6 +146,13 @@ class _ChatScreenState extends State<ChatScreen>
 
   // 이미지 첨부 기능 관련 변수
   bool _isAttachmentOpen = false; // 이미지 첨부 영역 표시 여부
+
+  // OverlayPortalController 추가
+  late final OverlayPortalController _notificationController =
+      OverlayPortalController();
+  bool _isOverlayVisible = false;
+  String _notificationMessage = '';
+  Timer? _hideTimer;
 
   @override
   void initState() {
@@ -177,7 +187,20 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 채팅방이 활성화될 때마다 읽음 처리
+    _cachedOverlay = Overlay.of(context);
+  }
+
+  @override
+  void deactivate() {
+    if (_overlayEntry != null) {
+      try {
+        _overlayEntry!.remove();
+        _overlayEntry = null;
+      } catch (e) {
+        print('deactivate 중 오버레이 제거 실패: $e');
+      }
+    }
+    super.deactivate();
   }
 
   Future<void> _init() async {
@@ -192,6 +215,7 @@ class _ChatScreenState extends State<ChatScreen>
   Future<void> _initSignalRConnection() async {
     try {
       // SignalR 연결 (callerName 전달)
+      await _signalRService.initialize();
       await _signalRService.connect(
         widget.chatRoomId,
         callerName: _callerName,
@@ -200,6 +224,11 @@ class _ChatScreenState extends State<ChatScreen>
       // 메시지 스트림 구독
       _messageSubscription = _signalRService.messageStream.listen(
         _onMessageReceived,
+      );
+
+      // 상품 정보 업데이트 핸들러 등록
+      _signalRService.registerTradeOfferUpdateHandler(
+        _handleTradeOfferUpdatedNotification,
       );
     } catch (e) {
       print('SignalR 연결 초기화 오류: $e');
@@ -227,6 +256,8 @@ class _ChatScreenState extends State<ChatScreen>
 
   /// 상품 정보 업데이트 알림 처리 함수
   void _handleTradeOfferUpdatedNotification(Map<String, dynamic> data) {
+    if (!mounted) return;
+
     // roomId 확인 - 현재 채팅방의 업데이트만 처리
     final int roomId = data['roomId'] ?? 0;
     if (roomId != widget.chatRoomId) return;
@@ -241,7 +272,8 @@ class _ChatScreenState extends State<ChatScreen>
     String? fullImageUrl;
     final imageUrl = offerData['imageUrl'];
     if (imageUrl != null && imageUrl.isNotEmpty && imageUrl != "string") {
-      fullImageUrl = '${_apiClient.getDomain}$imageUrl';
+      final ApiClient apiClient = ApiClient();
+      fullImageUrl = '${apiClient.getDomain}$imageUrl';
       print('DEBUG: 업데이트된 이미지 URL: $fullImageUrl');
     }
 
@@ -251,8 +283,10 @@ class _ChatScreenState extends State<ChatScreen>
 
     if (offerData['borrowStartAt'] != null) {
       try {
-        startDate = DateTime.parse(offerData['borrowStartAt']);
-        print('DEBUG: 업데이트된 시작일: $startDate');
+        final String dateStr = offerData['borrowStartAt'];
+        print('DEBUG: 서버에서 받은 시작 날짜 문자열: $dateStr');
+        startDate = DateTime.parse(dateStr).toLocal();
+        print('DEBUG: 파싱된 시작일: $startDate');
       } catch (e) {
         print('시작일 파싱 오류: $e');
       }
@@ -260,8 +294,10 @@ class _ChatScreenState extends State<ChatScreen>
 
     if (offerData['returnAt'] != null) {
       try {
-        endDate = DateTime.parse(offerData['returnAt']);
-        print('DEBUG: 업데이트된 종료일: $endDate');
+        final String dateStr = offerData['returnAt'];
+        print('DEBUG: 서버에서 받은 종료 날짜 문자열: $dateStr');
+        endDate = DateTime.parse(dateStr).toLocal();
+        print('DEBUG: 파싱된 종료일: $endDate');
       } catch (e) {
         print('종료일 파싱 오류: $e');
       }
@@ -271,36 +307,38 @@ class _ChatScreenState extends State<ChatScreen>
     _itemId = offerData['itemId'] ?? _itemId;
 
     // UI 업데이트
-    setState(() {
-      _product = Product(
-        title: offerData['title'] ?? '상품 정보 없음',
-        price: offerData['price']?.toString() ?? '0',
-        priceUnit: offerData['priceUnit'] ?? '일',
-        deposit: offerData['securityDeposit']?.toString() ?? '0',
-        imageUrl: fullImageUrl,
-      );
+    if (mounted) {
+      setState(() {
+        _product = Product(
+          title: offerData['title'] ?? '상품 정보 없음',
+          price: offerData['price']?.toString() ?? '0',
+          priceUnit: offerData['priceUnit'] ?? '일',
+          deposit: offerData['securityDeposit']?.toString() ?? '0',
+          imageUrl: fullImageUrl,
+        );
 
-      // 날짜 정보 업데이트
-      _productStartDate = startDate;
-      _productEndDate = endDate;
+        // 날짜 정보 업데이트
+        _productStartDate = startDate;
+        _productEndDate = endDate;
 
-      // 상품 정보 업데이트 메시지 추가
-      _messages.add(
-        ChatMessage(
-          text:
-              "판매자가 상품 정보를 수정했습니다.\n"
-              "가격: ${_convertPriceUnitToKorean(_product.priceUnit)} ${_formatPrice(_product.price)}원\n"
-              "보증금: ${_formatPrice(_product.deposit)}원"
-              "${_productStartDate != null && _productEndDate != null ? "\n기간: ${DateFormat('yyyy.MM.dd').format(_productStartDate!)} ~ ${DateFormat('yyyy.MM.dd').format(_productEndDate!)}" : ""}",
-          isMe: false,
-          timestamp: DateTime.now(),
-          senderName: "", // 시스템 메시지
-        ),
-      );
-    });
+        // 상품 정보 업데이트 메시지 추가
+        _messages.add(
+          ChatMessage(
+            text:
+                "판매자가 상품 정보를 수정했습니다.\n"
+                "가격: ${_convertPriceUnitToKorean(_product.priceUnit)} ${_formatPrice(_product.price)}원\n"
+                "보증금: ${_formatPrice(_product.deposit)}원"
+                "${_productStartDate != null && _productEndDate != null ? "\n기간: ${DateFormat('yyyy.MM.dd').format(_productStartDate!)} ~ ${DateFormat('yyyy.MM.dd').format(_productEndDate!)}" : ""}",
+            isMe: false,
+            timestamp: DateTime.now(),
+            senderName: "", // 시스템 메시지
+          ),
+        );
+      });
 
-    // 스크롤을 아래로 이동
-    _scrollToBottom();
+      // 스크롤을 아래로 이동
+      _scrollToBottom();
+    }
   }
 
   // API 클라이언트 초기화 및 메시지 로드
@@ -375,11 +413,23 @@ class _ChatScreenState extends State<ChatScreen>
 
           // 날짜 정보 추출 및 저장
           if (data['offer']['borrowStartAt'] != null) {
-            _productStartDate = DateTime.parse(data['offer']['borrowStartAt']);
+            try {
+              final String dateStr = data['offer']['borrowStartAt'];
+              print('DEBUG: 초기 로딩 - 서버에서 받은 시작 날짜: $dateStr');
+              _productStartDate = DateTime.parse(dateStr).toLocal();
+            } catch (e) {
+              print('초기 시작일 파싱 오류: $e');
+            }
           }
 
           if (data['offer']['returnAt'] != null) {
-            _productEndDate = DateTime.parse(data['offer']['returnAt']);
+            try {
+              final String dateStr = data['offer']['returnAt'];
+              print('DEBUG: 초기 로딩 - 서버에서 받은 종료 날짜: $dateStr');
+              _productEndDate = DateTime.parse(dateStr).toLocal();
+            } catch (e) {
+              print('초기 종료일 파싱 오류: $e');
+            }
           }
 
           // 중요: 서버에서 받아온 상품 정보로 항상 업데이트
@@ -682,84 +732,38 @@ class _ChatScreenState extends State<ChatScreen>
     });
   }
 
-  // 간결한 알림 표시 - 수정
+  // 알림 표시 메서드 수정
   void _showNotification(String message) {
-    // 기존 오버레이 제거
-    _removeOverlay();
+    if (!mounted) return;
 
-    // 애니메이션 컨트롤러 리셋
+    // 기존 타이머 취소
+    _searchDebounceTimer?.cancel();
+
+    setState(() {
+      _isOverlayVisible = true;
+      _notificationMessage = message;
+    });
+
+    // 애니메이션 컨트롤러 초기화 및 시작
     _fadeAnimController?.reset();
 
-    _overlayEntry = OverlayEntry(
-      builder:
-          (context) => Positioned(
-            top:
-                AppBar().preferredSize.height +
-                MediaQuery.of(context).padding.top +
-                10,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _fadeAnimation!,
-                builder: (context, child) {
-                  // 수정: 페이드아웃 애니메이션 적용
-                  return Opacity(
-                    opacity: 1.0 - _fadeAnimation!.value,
-                    child: child,
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(16),
-                    // 강조선 제거 - 테두리 속성 완전히 제거
-                  ),
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-    );
-
-    if (mounted) {
-      Overlay.of(context).insert(_overlayEntry!);
-    }
+    // 3초 후 자동 숨김
+    _searchDebounceTimer = Timer(const Duration(seconds: 3), () {
+      _fadeOutOverlay();
+    });
   }
 
-  // 오버레이 페이드아웃 효과와 함께 제거 - 수정
+  // 페이드아웃 메서드 수정
   void _fadeOutOverlay() {
-    if (_overlayEntry != null && _fadeAnimController != null && mounted) {
-      // 페이드아웃 애니메이션 시작
-      _fadeAnimController!.forward().then((_) {
-        // 위젯이 아직 마운트 상태인 경우에만 오버레이 제거
-        if (mounted) {
-          _removeOverlay();
-        }
-      });
-    }
-  }
+    if (!mounted) return;
 
-  // 오버레이 즉시 제거
-  void _removeOverlay() {
-    if (_overlayEntry != null) {
-      _overlayEntry!.remove();
-      _overlayEntry = null;
-    }
-    if (_fadeAnimController != null) {
-      _fadeAnimController!.reset();
-    }
+    _fadeAnimController?.forward().then((_) {
+      if (mounted) {
+        setState(() {
+          _isOverlayVisible = false;
+        });
+      }
+    });
   }
 
   // 상품 수정 모달 표시 함수
@@ -1154,20 +1158,45 @@ class _ChatScreenState extends State<ChatScreen>
                             ),
                             const SizedBox(height: 20),
 
-                            // 시작일 선택
-                            InkWell(
+                            // 시작일 선택 - 수정된 코드
+                            GestureDetector(
                               onTap: () async {
-                                final picked = await showDatePicker(
+                                print('시작일 선택 버튼 탭됨');
+
+                                // 오류 수정: initialDate가 firstDate보다 이전인 경우 firstDate로 설정
+                                DateTime now = DateTime.now();
+                                DateTime initialPickDate = startDate;
+
+                                // 시작일이 현재 날짜보다 이전이면, 현재 날짜를 initialDate로 설정
+                                if (initialPickDate.isBefore(now)) {
+                                  initialPickDate = now;
+                                }
+
+                                final DateTime? picked = await showDatePicker(
                                   context: context,
-                                  initialDate: startDate,
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(
-                                    const Duration(days: 365),
-                                  ),
+                                  initialDate: initialPickDate,
+                                  firstDate: now,
+                                  lastDate: now.add(const Duration(days: 365)),
+                                  builder: (
+                                    BuildContext context,
+                                    Widget? child,
+                                  ) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: const ColorScheme.light(
+                                          primary: Color(0xFF3154FF),
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
                                 );
-                                if (picked != null && picked != startDate) {
+
+                                if (picked != null) {
+                                  print('선택된 시작일: $picked');
                                   setDialogState(() {
                                     startDate = picked;
+                                    // 시작일이 종료일보다 이후인 경우 종료일 자동 조정
                                     if (startDate.isAfter(endDate)) {
                                       endDate = startDate.add(
                                         const Duration(days: 1),
@@ -1185,6 +1214,9 @@ class _ChatScreenState extends State<ChatScreen>
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.grey[300]!),
                                   borderRadius: BorderRadius.circular(12),
+                                  color:
+                                      Colors
+                                          .grey[50], // 배경색 추가하여 탭 가능한 영역임을 시각적으로 강조
                                 ),
                                 child: Row(
                                   mainAxisAlignment:
@@ -1194,9 +1226,20 @@ class _ChatScreenState extends State<ChatScreen>
                                       dateFormat.format(startDate),
                                       style: const TextStyle(fontSize: 16),
                                     ),
-                                    const Text(
-                                      '부터',
-                                      style: TextStyle(fontSize: 16),
+                                    Row(
+                                      // 탭 가능함을 더 명확히 표시
+                                      children: [
+                                        const Text(
+                                          '부터',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.calendar_today_outlined,
+                                          size: 16,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -1205,18 +1248,39 @@ class _ChatScreenState extends State<ChatScreen>
 
                             const SizedBox(height: 8),
 
-                            // 종료일 선택
-                            InkWell(
+                            // 종료일 선택 - 수정
+                            GestureDetector(
                               onTap: () async {
-                                final picked = await showDatePicker(
+                                print('종료일 선택 버튼 탭됨');
+
+                                // 종료일은 시작일 이후여야 함
+                                final DateTime? picked = await showDatePicker(
                                   context: context,
-                                  initialDate: endDate,
-                                  firstDate: startDate,
+                                  initialDate:
+                                      endDate.isBefore(startDate)
+                                          ? startDate
+                                          : endDate,
+                                  firstDate: startDate, // 시작일 이후만 선택 가능하도록
                                   lastDate: DateTime.now().add(
                                     const Duration(days: 365),
                                   ),
+                                  builder: (
+                                    BuildContext context,
+                                    Widget? child,
+                                  ) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: const ColorScheme.light(
+                                          primary: Color(0xFF3154FF),
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
                                 );
-                                if (picked != null && picked != endDate) {
+
+                                if (picked != null) {
+                                  print('선택된 종료일: $picked');
                                   setDialogState(() {
                                     endDate = picked;
                                   });
@@ -1231,6 +1295,7 @@ class _ChatScreenState extends State<ChatScreen>
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.grey[300]!),
                                   borderRadius: BorderRadius.circular(12),
+                                  color: Colors.grey[50], // 배경색 추가
                                 ),
                                 child: Row(
                                   mainAxisAlignment:
@@ -1240,9 +1305,19 @@ class _ChatScreenState extends State<ChatScreen>
                                       dateFormat.format(endDate),
                                       style: const TextStyle(fontSize: 16),
                                     ),
-                                    const Text(
-                                      '까지',
-                                      style: TextStyle(fontSize: 16),
+                                    Row(
+                                      children: [
+                                        const Text(
+                                          '까지',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.calendar_today_outlined,
+                                          size: 16,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -1306,11 +1381,30 @@ class _ChatScreenState extends State<ChatScreen>
 
                                         // 날짜 포맷팅
                                         String startDateStr = DateFormat(
-                                          'yyyy-MM-ddTHH:mm:ss.000Z',
-                                        ).format(startDate);
+                                          'yyyy-MM-ddT12:00:00.000Z',
+                                        ).format(
+                                          DateTime(
+                                            startDate.year,
+                                            startDate.month,
+                                            startDate.day,
+                                            12,
+                                            0,
+                                            0,
+                                          ).toUtc(),
+                                        );
+
                                         String endDateStr = DateFormat(
-                                          'yyyy-MM-ddTHH:mm:ss.000Z',
-                                        ).format(endDate);
+                                          'yyyy-MM-ddT12:00:00.000Z',
+                                        ).format(
+                                          DateTime(
+                                            endDate.year,
+                                            endDate.month,
+                                            endDate.day,
+                                            12,
+                                            0,
+                                            0,
+                                          ).toUtc(),
+                                        );
 
                                         Navigator.of(context).pop(); // 먼저 모달 닫기
 
@@ -1336,70 +1430,56 @@ class _ChatScreenState extends State<ChatScreen>
                                           borrowStartAt:
                                               startDateStr, // 시작 날짜 추가
                                           returnAt: endDateStr, // 종료 날짜 추가
-                                          // 수정하기 버튼 onPressed 콜백에서 onSuccess 부분 수정
                                           onSuccess: (message) {
                                             // 위젯이 여전히 마운트 상태인지 확인
+                                            if (!mounted) return; // 조기 반환으로 단순화
+
+                                            // 성공 시 처리
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(content: Text(message)),
+                                            );
+
+                                            // 콤마 제거하고 순수 숫자값만 저장
+                                            final cleanPrice = price.replaceAll(
+                                              ',',
+                                              '',
+                                            );
+                                            final cleanDeposit = deposit
+                                                .replaceAll(',', '');
+
+                                            // 즉시 상태 업데이트 - setState 직전에도 다시 확인
                                             if (mounted) {
-                                              // 성공 시 처리
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(message),
-                                                ),
-                                              );
+                                              setState(() {
+                                                _product = Product(
+                                                  title: title,
+                                                  price: cleanPrice,
+                                                  priceUnit: serverPriceUnit,
+                                                  deposit: cleanDeposit,
+                                                  imageUrl: _product.imageUrl,
+                                                );
 
-                                              // 콤마 제거하고 순수 숫자값만 저장
-                                              final cleanPrice = price
-                                                  .replaceAll(',', '');
-                                              final cleanDeposit = deposit
-                                                  .replaceAll(',', '');
+                                                // 날짜 정보 저장
+                                                _productStartDate = startDate;
+                                                _productEndDate = endDate;
 
-                                              // 상품 정보 업데이트 - WidgetsBinding을 사용하여 다음 프레임에서 확실히 업데이트
-                                              WidgetsBinding.instance.addPostFrameCallback((
-                                                _,
-                                              ) {
-                                                if (mounted) {
-                                                  setState(() {
-                                                    _product = Product(
-                                                      title: title,
-                                                      price:
-                                                          cleanPrice, // 깨끗한 숫자값만 저장
-                                                      priceUnit:
-                                                          serverPriceUnit,
-                                                      deposit:
-                                                          cleanDeposit, // 깨끗한 숫자값만 저장
-                                                      imageUrl:
-                                                          _product.imageUrl,
-                                                    );
-
-                                                    // 날짜 정보 저장
-                                                    _productStartDate =
-                                                        startDate;
-                                                    _productEndDate = endDate;
-
-                                                    // 상품 수정 완료 메시지 추가
-                                                    _messages.add(
-                                                      ChatMessage(
-                                                        text:
-                                                            "상품 정보를 수정했습니다.\n가격: ${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(cleanPrice)}원\n보증금: ${_formatPrice(cleanDeposit)}원\n기간: ${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}",
-                                                        isMe: true,
-                                                        timestamp:
-                                                            DateTime.now(),
-                                                        senderName: _callerName,
-                                                      ),
-                                                    );
-                                                  });
-
-                                                  // 스크롤을 맨 아래로 이동
-                                                  _scrollToBottom();
-
-                                                  // 디버깅용 로그
-                                                  print(
-                                                    '상품 정보 업데이트됨: ${_product.price}, ${_product.deposit}, ${_product.priceUnit}',
-                                                  );
-                                                }
+                                                // 상품 수정 완료 메시지 추가
+                                                _messages.add(
+                                                  ChatMessage(
+                                                    text:
+                                                        "상품 정보를 수정했습니다.\n가격: ${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(cleanPrice)}원\n보증금: ${_formatPrice(cleanDeposit)}원\n기간: ${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}",
+                                                    isMe: true,
+                                                    timestamp: DateTime.now(),
+                                                    senderName: _callerName,
+                                                  ),
+                                                );
                                               });
+                                            }
+
+                                            // 상태 업데이트 후에도 여전히 마운트 상태인지 확인
+                                            if (mounted) {
+                                              _scrollToBottom();
                                             }
                                           },
                                           onError: (errorMessage) {
@@ -1473,212 +1553,249 @@ class _ChatScreenState extends State<ChatScreen>
       child: Scaffold(
         appBar: _buildAppBar(),
         backgroundColor: Colors.white,
-        body:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                  children: [
-                    _buildProductInfo(),
-                    Expanded(
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: ColorScheme.fromSwatch().copyWith(
-                            secondary: Colors.white,
-                          ),
-                        ),
-                        child: Container(
-                          color: Colors.white,
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.all(16.0),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) {
-                              final showTimestamp =
-                                  index == _messages.length - 1 ||
-                                  _messages[index].timestamp.minute !=
-                                      _messages[index + 1].timestamp.minute;
-
-                              bool showProfile = false;
-                              if (!_messages[index].isMe) {
-                                if (index == 0) {
-                                  showProfile = true;
-                                } else {
-                                  final prevMessage = _messages[index - 1];
-                                  if (prevMessage.timestamp.minute !=
-                                          _messages[index].timestamp.minute ||
-                                      prevMessage.isMe) {
-                                    showProfile = true;
-                                  }
-                                }
-                              }
-
-                              int? matchPosition;
-                              int? matchLength;
-                              bool isCurrentSearchResult = false;
-
-                              if (_isSearchMode &&
-                                  _currentSearchIndex != -1 &&
-                                  _searchResults.isNotEmpty) {
-                                final currentResult =
-                                    _searchResults[_currentSearchIndex];
-                                if (currentResult.messageIndex == index) {
-                                  isCurrentSearchResult = true;
-                                  matchPosition =
-                                      currentResult.matchPositions.first;
-                                  matchLength =
-                                      currentResult.matchLengths.first;
-                                }
-                              }
-
-                              return _buildMessage(
-                                _messages[index],
-                                showTimestamp: showTimestamp,
-                                isCurrentSearchResult: isCurrentSearchResult,
-                                matchPosition: matchPosition,
-                                matchLength: matchLength,
-                                showProfile: showProfile,
-                              );
-                            },
-                          ),
-                        ),
+        body: Stack(
+          children: [
+            // 기존 화면 내용
+            Column(
+              children: [
+                _buildProductInfo(),
+                Expanded(
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: ColorScheme.fromSwatch().copyWith(
+                        secondary: Colors.white,
                       ),
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border(
-                          top: BorderSide(color: Colors.grey[200]!, width: 1),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 4,
-                            offset: const Offset(0, -2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          if (_isAttachmentOpen)
-                            Container(
-                              height: 100,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.grey[200]!,
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  InkWell(
-                                    onTap: () {
-                                      // TODO: 이미지 첨부 기능 구현
-                                    },
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 50,
-                                          height: 50,
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[100],
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            Icons.image,
-                                            color: Colors.grey[400],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '이미지',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 8.0,
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    _isAttachmentOpen ? Icons.close : Icons.add,
-                                    color: Colors.grey[600],
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isAttachmentOpen = !_isAttachmentOpen;
-                                    });
-                                  },
-                                ),
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                    child: TextField(
-                                      controller: _textController,
-                                      decoration: InputDecoration(
-                                        hintText: '메시지 입력',
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: 14,
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 12,
-                                            ),
-                                      ),
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF3154FF),
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.send,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                    onPressed: _handleSubmitted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                    child: Container(
+                      color: Colors.white,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final showTimestamp =
+                              index == _messages.length - 1 ||
+                              _messages[index].timestamp.minute !=
+                                  _messages[index + 1].timestamp.minute;
+
+                          bool showProfile = false;
+                          if (!_messages[index].isMe) {
+                            if (index == 0) {
+                              showProfile = true;
+                            } else {
+                              final prevMessage = _messages[index - 1];
+                              if (prevMessage.timestamp.minute !=
+                                      _messages[index].timestamp.minute ||
+                                  prevMessage.isMe) {
+                                showProfile = true;
+                              }
+                            }
+                          }
+
+                          int? matchPosition;
+                          int? matchLength;
+                          bool isCurrentSearchResult = false;
+
+                          if (_isSearchMode &&
+                              _currentSearchIndex != -1 &&
+                              _searchResults.isNotEmpty) {
+                            final currentResult =
+                                _searchResults[_currentSearchIndex];
+                            if (currentResult.messageIndex == index) {
+                              isCurrentSearchResult = true;
+                              matchPosition =
+                                  currentResult.matchPositions.first;
+                              matchLength = currentResult.matchLengths.first;
+                            }
+                          }
+
+                          return _buildMessage(
+                            _messages[index],
+                            showTimestamp: showTimestamp,
+                            isCurrentSearchResult: isCurrentSearchResult,
+                            matchPosition: matchPosition,
+                            matchLength: matchLength,
+                            showProfile: showProfile,
+                          );
+                        },
                       ),
                     ),
-                  ],
+                  ),
                 ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: Colors.grey[200]!, width: 1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      if (_isAttachmentOpen)
+                        Container(
+                          height: 100,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey[200]!,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  // TODO: 이미지 첨부 기능 구현
+                                },
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '이미지',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 8.0,
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _isAttachmentOpen ? Icons.close : Icons.add,
+                                color: Colors.grey[600],
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isAttachmentOpen = !_isAttachmentOpen;
+                                });
+                              },
+                            ),
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: TextField(
+                                  controller: _textController,
+                                  decoration: InputDecoration(
+                                    hintText: '메시지 입력',
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 14,
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF3154FF),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.send,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                onPressed: _handleSubmitted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // 알림을 위한 오버레이 포털
+            if (_isOverlayVisible)
+              Positioned(
+                top:
+                    AppBar().preferredSize.height +
+                    MediaQuery.of(context).padding.top +
+                    10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _fadeAnimation!,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: 1.0 - _fadeAnimation!.value,
+                        child: child,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        _notificationMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -2268,18 +2385,19 @@ class _ChatScreenState extends State<ChatScreen>
 
   @override
   void dispose() {
-    // 오버레이 안전하게 제거
-    if (_overlayEntry != null) {
-      _overlayEntry!.remove();
-      _overlayEntry = null;
-    }
-
+    // 타이머 정리
+    _hideTimer?.cancel();
+    
     // SignalR 관련 자원 해제
     _messageSubscription?.cancel();
+    _signalRService.registerTradeOfferUpdateHandler(null);
+    
+    // 컨트롤러 정리
     _fadeAnimController?.dispose();
     _searchController.dispose();
     _textController.dispose();
     _scrollController.dispose();
+    
     super.dispose();
   }
 }
