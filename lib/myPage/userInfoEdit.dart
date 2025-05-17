@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:renty_client/core/api_client.dart';
 import 'dart:math'; // sin 함수 사용
+import 'package:renty_client/core/token_manager.dart';
+import 'package:dio/dio.dart';
 
 // 회원 정보 데이터 모델 수정
 class UserInfoData {
@@ -44,19 +46,15 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
   late TextEditingController _phoneController;
   late TextEditingController _userNameController; // 닉네임 (수정 불가)
   late TextEditingController _accountController; // 계좌번호
-  late TextEditingController _currentPasswordController;
-  late TextEditingController _newPasswordController;
-  late TextEditingController _confirmPasswordController;
 
   bool _hasChanges = false;
+  bool _isSaving = false; // 저장 중 상태 표시
 
   // 에러 상태 관리 변수
   bool _isNameError = false;
   bool _isEmailError = false;
   bool _isPhoneError = false;
   bool _isAccountError = false;
-  bool _isPasswordError = false;
-  bool _isPasswordMismatch = false;
 
   // 애니메이션 컨트롤러
   late AnimationController _shakeController;
@@ -88,18 +86,12 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
     _accountController = TextEditingController(
       text: _originalAccountNumber ?? '',
     );
-    _currentPasswordController = TextEditingController();
-    _newPasswordController = TextEditingController();
-    _confirmPasswordController = TextEditingController();
 
     // 텍스트 변경 감지 리스너 추가
     _nameController.addListener(_checkChanges);
     _emailController.addListener(_checkChanges);
     _phoneController.addListener(_checkChanges);
     _accountController.addListener(_checkChanges);
-    _currentPasswordController.addListener(_checkChanges);
-    _newPasswordController.addListener(_checkChanges);
-    _confirmPasswordController.addListener(_checkChanges);
 
     // 애니메이션 컨트롤러 초기화
     _shakeController = AnimationController(
@@ -123,18 +115,12 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
     _emailController.removeListener(_checkChanges);
     _phoneController.removeListener(_checkChanges);
     _accountController.removeListener(_checkChanges);
-    _currentPasswordController.removeListener(_checkChanges);
-    _newPasswordController.removeListener(_checkChanges);
-    _confirmPasswordController.removeListener(_checkChanges);
 
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _userNameController.dispose();
     _accountController.dispose();
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
 
     _shakeController.dispose();
     super.dispose();
@@ -191,10 +177,7 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
           _nameController.text != _originalName ||
           _emailController.text != _originalEmail ||
           _phoneController.text != _formatPhoneNumber(_originalPhone) ||
-          _accountController.text != (_originalAccountNumber ?? '') ||
-          _currentPasswordController.text.isNotEmpty ||
-          _newPasswordController.text.isNotEmpty ||
-          _confirmPasswordController.text.isNotEmpty;
+          _accountController.text != (_originalAccountNumber ?? '');
 
       // 텍스트가 입력되면 에러 상태 제거
       if (_nameController.text.isNotEmpty) {
@@ -205,15 +188,6 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
       }
       if (_phoneController.text.isNotEmpty) {
         _isPhoneError = false;
-      }
-
-      // 비밀번호 일치 여부 확인
-      if (_newPasswordController.text.isNotEmpty &&
-          _confirmPasswordController.text.isNotEmpty) {
-        _isPasswordMismatch =
-            _newPasswordController.text != _confirmPasswordController.text;
-      } else {
-        _isPasswordMismatch = false;
       }
     });
   }
@@ -300,98 +274,61 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
         false;
   }
 
-  // 정보 저장 함수
-  void _saveUserInfo() async {
-    // 입력값 검증
-    bool hasError = false;
-
-    if (_nameController.text.trim().isEmpty) {
-      setState(() {
-        _isNameError = true;
-      });
-      hasError = true;
-    }
-
-    if (_emailController.text.trim().isEmpty ||
-        !_emailController.text.contains('@')) {
-      setState(() {
-        _isEmailError = true;
-      });
-      hasError = true;
-    }
-
-    if (_phoneController.text.trim().isEmpty) {
-      setState(() {
-        _isPhoneError = true;
-      });
-      hasError = true;
-    }
-
-    // 비밀번호 변경을 시도하는 경우
-    if (_newPasswordController.text.isNotEmpty ||
-        _confirmPasswordController.text.isNotEmpty) {
-      if (_currentPasswordController.text.isEmpty) {
-        setState(() {
-          _isPasswordError = true;
-        });
-        hasError = true;
-      }
-
-      if (_newPasswordController.text != _confirmPasswordController.text) {
-        setState(() {
-          _isPasswordMismatch = true;
-        });
-        hasError = true;
-      }
-
-      if (_newPasswordController.text.length < 6) {
-        setState(() {
-          _isPasswordError = true;
-        });
-        hasError = true;
-      }
-    }
-
-    if (hasError) {
-      // 흔들림 애니메이션 실행
-      _shakeController.forward();
-
-      // 햅틱 피드백
-      HapticFeedback.mediumImpact();
+  // 회원 정보 저장하기 함수 수정
+  Future<void> _saveUserInfo() async {
+    // 기본 유효성 검사
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이름, 이메일, 전화번호는 필수 입력 항목입니다')),
+      );
       return;
     }
 
-    // 햅틱 피드백
-    HapticFeedback.lightImpact();
+    setState(() {
+      _isSaving = true; // 저장 중 상태 표시
+    });
 
     try {
-      // 저장 중임을 표시
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('회원 정보를 저장 중입니다...')));
-
-      // API 요청을 위한 데이터 준비
-      final Map<String, dynamic> userData = {
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phoneNumber': _phoneController.text.replaceAll('-', ''), // 하이픈 제거
-        'accountNumber': _accountController.text.trim(),
+      // FormData 생성을 위한 맵 준비
+      final Map<String, dynamic> formFields = {
+        "Email": _emailController.text.trim(),
+        "Name": _nameController.text.trim(),
+        "UserName": _userNameController.text.trim(),
+        "PhoneNumber": _phoneController.text.replaceAll('-', ''),
+        "ImageAction": "None", // ImageAction 필드 추가
       };
 
-      // 비밀번호 변경을 시도하는 경우
-      if (_newPasswordController.text.isNotEmpty) {
-        userData['currentPassword'] = _currentPasswordController.text;
-        userData['newPassword'] = _newPasswordController.text;
+      // 계좌번호가 있으면 추가
+      if (_accountController.text.trim().isNotEmpty) {
+        formFields["AccountNumber"] = _accountController.text.trim();
       }
 
-      // API 호출
-      final response = await _apiClient.client.post(
-        '/my/profile',
-        data: userData,
+      // FormData 객체 생성 (multipart/form-data 형식)
+      final formData = FormData.fromMap(formFields);
+
+      // 디버깅용 요청 데이터 출력
+      print('서버로 보내는 데이터: $formFields');
+
+      // PUT 요청 실행 (수정)
+      final response = await _apiClient.client.put(
+        '/My/profile',
+        data: formData, // FormData 객체 사용
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // 성공 메시지
+      setState(() {
+        _isSaving = false;
+      });
+
+      // 응답 처리
+      if (response.statusCode == 200) {
+        // JWT 토큰 저장 (반드시 필요)
+        Map<String, dynamic> jsonData = response.data;
+        final String accessToken = jsonData['token'];
+        await TokenManager.saveToken(accessToken);
+
+        // 성공 메시지 및 이전 화면 이동
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(
           context,
@@ -403,20 +340,53 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
           email: _emailController.text.trim(),
           phoneNumber: _phoneController.text.replaceAll('-', ''),
           userName: _userNameController.text,
-          accountNumber: _accountController.text.trim(),
+          accountNumber:
+              _accountController.text.trim().isEmpty
+                  ? null
+                  : _accountController.text.trim(),
         );
 
         // 이전 화면으로 결과 데이터와 함께 돌아가기
         Navigator.pop(context, updatedInfo);
-      } else {
-        throw Exception('서버 오류: ${response.statusCode}');
       }
     } catch (e) {
-      // 에러 처리
+      setState(() {
+        _isSaving = false;
+      });
+
+      // 디버깅용 상세 오류 정보 출력
+      print('회원 정보 저장 실패: $e');
+      if (e is DioException && e.response != null) {
+        print('오류 상태 코드: ${e.response?.statusCode}');
+        print('오류 응답 데이터: ${e.response?.data}');
+      }
+
+      // 오류 처리
       ScaffoldMessenger.of(context).clearSnackBars();
+
+      String errorMessage = '회원 정보 저장 중 오류가 발생했습니다';
+
+      // DioError 처리
+      if (e is DioException && e.response?.statusCode == 400) {
+        final errors = e.response?.data?[''];
+        if (errors is List && errors.isNotEmpty) {
+          for (var err in errors) {
+            if (err is String) {
+              if (err.contains("Email") && err.contains("already taken")) {
+                errorMessage = '이미 사용 중인 이메일입니다.';
+                break;
+              }
+              // 다른 오류 메시지 처리 가능
+            }
+          }
+        }
+      }
+
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('회원 정보 저장 중 오류가 발생했습니다: $e')));
+      ).showSnackBar(SnackBar(content: Text(errorMessage)));
+
+      print('회원 정보 저장 실패: $e');
     }
   }
 
@@ -595,58 +565,6 @@ class _UserInfoEditPageState extends State<UserInfoEditPage>
                   isError: _isAccountError,
                   errorText: '계좌번호를 올바르게 입력해주세요',
                   keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 36),
-
-                // 구분선
-                Divider(color: Colors.grey.withOpacity(0.3), thickness: 1),
-                const SizedBox(height: 24),
-
-                // 비밀번호 변경 섹션 제목
-                Text(
-                  '비밀번호 변경',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 현재 비밀번호 입력 필드
-                _buildInputField(
-                  label: '현재 비밀번호',
-                  controller: _currentPasswordController,
-                  isError:
-                      _isPasswordError &&
-                      _currentPasswordController.text.isEmpty &&
-                      (_newPasswordController.text.isNotEmpty ||
-                          _confirmPasswordController.text.isNotEmpty),
-                  errorText: '현재 비밀번호를 입력해주세요',
-                  obscureText: true,
-                ),
-                const SizedBox(height: 24),
-
-                // 새 비밀번호 입력 필드
-                _buildInputField(
-                  label: '새 비밀번호',
-                  controller: _newPasswordController,
-                  isError:
-                      _isPasswordError &&
-                      _newPasswordController.text.isNotEmpty &&
-                      _newPasswordController.text.length < 6,
-                  errorText: '비밀번호는 6자 이상이어야 합니다',
-                  obscureText: true,
-                ),
-                const SizedBox(height: 24),
-
-                // 비밀번호 확인 입력 필드
-                _buildInputField(
-                  label: '비밀번호 확인',
-                  controller: _confirmPasswordController,
-                  isError: _isPasswordMismatch,
-                  errorText: '비밀번호가 일치하지 않습니다',
-                  obscureText: true,
                 ),
               ],
             ),

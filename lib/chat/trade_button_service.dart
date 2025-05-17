@@ -68,8 +68,10 @@ class TradeButtonService {
     BuildContext context,
     Product product,
     String callerName,
-    int itemId,
-  ) {
+    int itemId, {
+    DateTime? startDate, // 판매자가 설정한 시작일
+    DateTime? endDate, // 판매자가 설정한 종료일
+  }) {
     // 가격 문자열을 적절하게 숫자로 변환하는 부분 수정
     int price;
     int deposit;
@@ -101,12 +103,13 @@ class TradeButtonService {
       deposit = 0;
     }
 
-    // 대여 시작일/종료일 (오늘부터 시작, 기본 1주일)
-    DateTime startDate = DateTime.now();
-    DateTime endDate = startDate.add(const Duration(days: 6)); // 기본 1주일
+    // 대여 시작일/종료일 - 판매자가 설정한 날짜를 사용하거나 기본값 설정
+    DateTime borrowStartDate = startDate ?? DateTime.now();
+    DateTime returnDate =
+        endDate ?? borrowStartDate.add(const Duration(days: 6));
 
     // 총 대여일수
-    int totalDays = 7; // 기본값
+    int totalDays = returnDate.difference(borrowStartDate).inDays + 1;
 
     // 총 가격 계산
     int totalPrice = _calculateTotalPrice(price, product.priceUnit, totalDays);
@@ -120,17 +123,6 @@ class TradeButtonService {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            // 총 대여 날짜 계산 함수
-            void updateDateAndPrice() {
-              totalDays = endDate.difference(startDate).inDays + 1; // 당일 포함
-              totalPrice = _calculateTotalPrice(
-                price,
-                product.priceUnit,
-                totalDays,
-              );
-              setState(() {});
-            }
-
             return Dialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -240,7 +232,7 @@ class TradeButtonService {
 
                     const SizedBox(height: 24),
 
-                    // 대여 기간 선택
+                    // 대여 기간 표시 - 수정 불가능하게 변경
                     const Text(
                       '대여 기간',
                       style: TextStyle(
@@ -251,90 +243,59 @@ class TradeButtonService {
 
                     const SizedBox(height: 16),
 
-                    // 시작일 선택
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: startDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 365),
-                          ),
-                        );
-                        if (picked != null && picked != startDate) {
-                          setState(() {
-                            startDate = picked;
-                            if (startDate.isAfter(endDate)) {
-                              endDate = startDate.add(const Duration(days: 1));
-                            }
-                            updateDateAndPrice();
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${dateFormat.format(startDate)}',
-                              style: const TextStyle(fontSize: 16),
+                    // 시작일 - 읽기 전용으로 변경
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100], // 배경색 변경으로 읽기 전용 표시
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            dateFormat.format(borrowStartDate),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[800], // 약간 더 어두운 색상
                             ),
-                            const Text('부터', style: TextStyle(fontSize: 16)),
-                          ],
-                        ),
+                          ),
+                          const Text('부터', style: TextStyle(fontSize: 16)),
+                        ],
                       ),
                     ),
 
                     const SizedBox(height: 8),
 
-                    // 종료일 선택
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: endDate,
-                          firstDate: startDate,
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 365),
-                          ),
-                        );
-                        if (picked != null && picked != endDate) {
-                          setState(() {
-                            endDate = picked;
-                            updateDateAndPrice();
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${dateFormat.format(endDate)}',
-                              style: const TextStyle(fontSize: 16),
+                    // 종료일 - 읽기 전용으로 변경
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100], // 배경색 변경으로 읽기 전용 표시
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            dateFormat.format(returnDate),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[800], // 약간 더 어두운 색상
                             ),
-                            const Text('까지', style: TextStyle(fontSize: 16)),
-                          ],
-                        ),
+                          ),
+                          const Text('까지', style: TextStyle(fontSize: 16)),
+                        ],
                       ),
                     ),
 
@@ -391,15 +352,15 @@ class TradeButtonService {
                               // 선택한 날짜 포맷팅
                               String startDateStr = DateFormat(
                                 'yyyy-MM-ddTHH:mm:ss.000Z',
-                              ).format(startDate);
+                              ).format(borrowStartDate);
                               String endDateStr = DateFormat(
                                 'yyyy-MM-ddTHH:mm:ss.000Z',
-                              ).format(endDate);
+                              ).format(returnDate);
 
                               // 채팅방에 메시지 추가
                               // 대여 요청 메시지 생성
                               final message =
-                                  "대여 요청이 전송되었습니다.\n대여 기간: ${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}\n총 가격: ${NumberFormat('#,###').format(totalPrice)}원";
+                                  "대여 요청이 전송되었습니다.\n대여 기간: ${dateFormat.format(borrowStartDate)} ~ ${dateFormat.format(returnDate)}\n총 가격: ${NumberFormat('#,###').format(totalPrice)}원";
 
                               // 채팅 메시지 등록하기 위해 컨텍스트를 통해 ChatScreen 상태 접근
                               Navigator.pop(context); // 모달 닫기
@@ -498,7 +459,6 @@ class TradeButtonService {
       return price;
     }
   }
-  
 
   // 총 가격 계산 함수
   int _calculateTotalPrice(int basePrice, String priceUnit, int days) {
@@ -582,6 +542,8 @@ class TradeButtonService {
     required String priceUnit,
     required String deposit,
     required String buyerName,
+    String? borrowStartAt, // 시작 날짜 추가
+    String? returnAt, // 종료 날짜 추가
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -609,6 +571,8 @@ class TradeButtonService {
         price: priceValue,
         priceUnit: priceUnit,
         securityDeposit: depositValue,
+        borrowStartAt: borrowStartAt, // 시작 날짜 추가
+        returnAt: returnAt, // 종료 날짜 추가
       );
 
       // API 호출

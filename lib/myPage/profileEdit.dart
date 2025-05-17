@@ -7,20 +7,10 @@ import 'dart:math'; // sin 함수 사용
 import 'package:dio/dio.dart'; // Dio import 추가
 import 'package:renty_client/core/api_client.dart'; // API 클라이언트 import 추가
 
-// 프로필 데이터 모델 클래스
-class ProfileData {
-  final String nickname;
-  final String? imageUrl; // 서버에 저장된 이미지 URL
-
-  ProfileData({required this.nickname, this.imageUrl});
-}
-
 class ProfileEditPage extends StatefulWidget {
-  // 생성자에서 사용자 프로필 데이터 받기
-  final ProfileData initialProfile;
+  final Map<String, dynamic>? initialProfile;
 
-  const ProfileEditPage({Key? key, required this.initialProfile})
-    : super(key: key);
+  const ProfileEditPage({Key? key, this.initialProfile}) : super(key: key);
 
   @override
   State<ProfileEditPage> createState() => _ProfileEditPageState();
@@ -29,9 +19,10 @@ class ProfileEditPage extends StatefulWidget {
 class _ProfileEditPageState extends State<ProfileEditPage>
     with SingleTickerProviderStateMixin {
   // 프로필 정보 변수들
-  late String _originalNickname;
   late TextEditingController _nicknameController;
+  final ApiClient apiClient = ApiClient(); // ApiClient 인스턴스 추가
   bool _hasChanges = false;
+  bool _isSaving = false; // 저장 상태 추가
 
   // 입력란 에러 상태 관리 변수
   bool _isNicknameError = false;
@@ -44,14 +35,18 @@ class _ProfileEditPageState extends State<ProfileEditPage>
   final ImagePicker _picker = ImagePicker();
   XFile? _selectedImage;
   String? _originalImageUrl;
+  bool _isProfileImageDeleted = false; // 이미지 삭제 플래그 추가
 
   @override
   void initState() {
     super.initState();
-    // 초기 프로필 데이터 설정
-    _originalNickname = widget.initialProfile.nickname;
-    _originalImageUrl = widget.initialProfile.imageUrl;
-    _nicknameController = TextEditingController(text: _originalNickname);
+    _nicknameController = TextEditingController();
+
+    // 초기 데이터 설정
+    if (widget.initialProfile != null) {
+      _nicknameController.text = widget.initialProfile!['nickname'] ?? '';
+      _originalImageUrl = widget.initialProfile!['imageUrl'];
+    }
 
     // 텍스트 변경 감지 리스너 추가
     _nicknameController.addListener(_checkChanges);
@@ -84,8 +79,9 @@ class _ProfileEditPageState extends State<ProfileEditPage>
   void _checkChanges() {
     setState(() {
       _hasChanges =
-          _nicknameController.text != _originalNickname ||
-          _selectedImage != null;
+          _nicknameController.text != widget.initialProfile?['nickname'] ||
+          _selectedImage != null ||
+          _isProfileImageDeleted;
 
       // 텍스트가 입력되면 에러 상태 제거
       if (_nicknameController.text.isNotEmpty) {
@@ -114,6 +110,14 @@ class _ProfileEditPageState extends State<ProfileEditPage>
         context,
       ).showSnackBar(SnackBar(content: Text('이미지를 가져오는 중 오류가 발생했습니다: $e')));
     }
+  }
+
+  // 이미지 삭제 함수 추가
+  void _deleteProfileImage() {
+    setState(() {
+      _selectedImage = null;
+      _isProfileImageDeleted = true;
+    });
   }
 
   // 뒤로가기 처리 함수
@@ -198,9 +202,9 @@ class _ProfileEditPageState extends State<ProfileEditPage>
         false;
   }
 
-  // 프로필 저장 함수 (API 호출 부분 구현)
+  // 프로필 저장 함수 수정
   void _saveProfile() async {
-    // 닉네임 공백 검증
+    // 닉네임 공백 검증 (기존 코드 유지)
     if (_nicknameController.text.trim().isEmpty) {
       setState(() {
         _isNicknameError = true;
@@ -218,71 +222,135 @@ class _ProfileEditPageState extends State<ProfileEditPage>
     // 햅틱 피드백 추가
     HapticFeedback.lightImpact();
 
+    setState(() {
+      _isSaving = true;
+    });
+
     try {
-      // 저장 중임을 표시
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('프로필 정보를 저장 중입니다...')));
-
-      // API 요청을 위한 데이터 준비
-      String nickname = _nicknameController.text.trim();
-
       // API 클라이언트 인스턴스 생성
       final ApiClient apiClient = ApiClient();
-      Map<String, dynamic> requestData = {"userName": nickname};
 
-      // 이미지 업로드와 함께 프로필 정보 업데이트
+      // 현재 사용자 정보 가져오기
+      final userResponse = await apiClient.client.get('/My/profile');
+      final userData = userResponse.data;
+
+      // FormData 생성을 위한 맵 준비
+      final Map<String, dynamic> formFields = {
+        "Email": userData['email'] ?? '',
+        "Name": userData['name'] ?? '',
+        "UserName": _nicknameController.text.trim(),
+        "PhoneNumber": userData['phoneNumber'] ?? '',
+      };
+
+      // 계좌번호가 있으면 추가
+      if (userData['accountNumber'] != null) {
+        formFields["AccountNumber"] = userData['accountNumber'];
+      }
+
+      // 이미지 처리 로직
+      String imageAction = "None"; // 기본값
+
       if (_selectedImage != null) {
-        final imageFile = File(_selectedImage!.path);
-
-        // FormData 생성
-        final formData = FormData.fromMap({
-          "userName": nickname,
-          "profileImage": await MultipartFile.fromFile(
-            imageFile.path,
-            filename: imageFile.path.split('/').last,
-          ),
-        });
-
-        // PUT 또는 PATCH 요청 (API 명세에 따라 선택)
-        final response = await apiClient.client.put(
-          '/my/profile',
-          data: formData,
+        // 새 이미지가 선택됨 -> Upload
+        imageAction = "Upload";
+        formFields["ProfileImage"] = await MultipartFile.fromFile(
+          _selectedImage!.path,
+          filename: 'profile_image.jpg',
         );
-
-        print('API 응답: ${response.statusCode} - ${response.data}');
-      }
-      // 이미지 없이 닉네임만 업데이트
-      else {
-        final response = await apiClient.client.put(
-          '/my/profile',
-          data: {"userName": nickname},
-        );
-
-        print('API 응답: ${response.statusCode} - ${response.data}');
+      } else if (_isProfileImageDeleted) {
+        // 이미지 삭제 처리 추가
+        imageAction = "Delete";
       }
 
-      // 성공 메시지
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('프로필이 성공적으로 저장되었습니다')));
+      // ImageAction 필드 추가
+      formFields["ImageAction"] = imageAction;
 
-      // 수정된 데이터를 이전 화면으로 반환
-      final updatedProfile = ProfileData(
-        nickname: nickname,
-        imageUrl: _selectedImage?.path ?? _originalImageUrl,
+      // FormData 생성
+      final formData = FormData.fromMap(formFields);
+
+      // PUT 요청 실행
+      final response = await apiClient.client.put(
+        '/My/profile',
+        data: formData,
       );
 
-      // 이전 화면으로 결과 데이터와 함께 돌아가기
-      Navigator.pop(context, updatedProfile);
+      // setState 전에 mounted 체크 추가
+      if (!mounted) return;
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      if (response.statusCode == 200) {
+        // JWT 토큰 저장 추가
+        Map<String, dynamic> jsonData = response.data;
+        final String accessToken = jsonData['token'];
+        await TokenManager.saveToken(accessToken);
+
+        // mounted 확인 후 UI 업데이트
+        if (!mounted) return;
+
+        // 성공 메시지 (컨텍스트 사용 전 mounted 확인)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('프로필이 성공적으로 저장되었습니다')));
+
+        // 안전한 Navigation
+        if (mounted) {
+          Navigator.of(context).pop({
+            'userName': _nicknameController.text.trim(),
+            'profileImage':
+                _selectedImage?.path ??
+                (_isProfileImageDeleted ? null : _originalImageUrl),
+          });
+        }
+      } else {
+        if (mounted) _handleApiError('프로필 저장에 실패했습니다.');
+      }
     } catch (e) {
-      // 에러 처리
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('프로필 저장 중 오류가 발생했습니다: $e')));
-      print('프로필 저장 오류: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _isSaving = false;
+      });
+      _handleApiError(e);
+    }
+  }
+
+  // 오류 처리 메서드 수정
+  void _handleApiError(dynamic error) {
+    String errorMessage = '프로필 저장 중 오류가 발생했습니다';
+
+    print('에러 디버그: $error');
+
+    // DioError 처리
+    if (error is DioException && error.response?.statusCode == 400) {
+      final errors = error.response?.data?[''];
+
+      if (errors is List && errors.isNotEmpty) {
+        for (var err in errors) {
+          if (err is String) {
+            if (err.contains("Username") && err.contains("already taken")) {
+              errorMessage = '이미 사용 중인 닉네임입니다.';
+              break;
+            } else if (err.contains("Email") && err.contains("already taken")) {
+              errorMessage = '이미 사용 중인 이메일입니다.';
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(errorMessage)));
+
+    // 자세한 에러 로그 출력
+    print('프로필 저장 오류: $error');
+    if (error is DioException && error.response != null) {
+      print('에러 상태 코드: ${error.response?.statusCode}');
+      print('에러 응답 데이터: ${error.response?.data}');
     }
   }
 
@@ -336,54 +404,107 @@ class _ProfileEditPageState extends State<ProfileEditPage>
             children: [
               const SizedBox(height: 24),
 
-              // 프로필 이미지 및 카메라 아이콘
+              // 프로필 이미지 섹션 (UI build 메서드 내)
               Center(
-                child: Stack(
+                child: Column(
                   children: [
-                    // 프로필 이미지
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        shape: BoxShape.circle,
-                      ),
-                      child: _profileImageWidget(),
-                    ),
-
-                    // 카메라 아이콘 (우측 하단에 배치)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
+                    GestureDetector(
+                      onTap: _pickImage,
                       child: Container(
-                        width: 40,
-                        height: 40,
+                        width: 120,
+                        height: 120,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.grey[200],
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                              blurRadius: 10,
+                              spreadRadius: 1,
                             ),
                           ],
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _pickImage, // 이미지 선택 함수 연결
-                            customBorder: const CircleBorder(),
-                            child: const Center(
-                              child: Icon(
-                                Icons.camera_alt,
-                                size: 20,
-                                color: Colors.black54,
-                              ),
+                        child: ClipOval(
+                          child:
+                              _isProfileImageDeleted
+                                  ? const Icon(
+                                    Icons.person,
+                                    size: 60,
+                                    color: Colors.grey,
+                                  )
+                                  : _selectedImage != null
+                                  ? Image.file(
+                                    File(_selectedImage!.path),
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                  )
+                                  : _originalImageUrl != null
+                                  ? Image.network(
+                                    // 서버 도메인과 이미지 경로를 결합
+                                    '${ApiClient().getDomain}${_originalImageUrl!}',
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      print(
+                                        '프로필 이미지 로드 오류: $error (URL: ${ApiClient().getDomain}${_originalImageUrl!})',
+                                      );
+                                      return const Icon(
+                                        Icons.person,
+                                        size: 60,
+                                        color: Colors.grey,
+                                      );
+                                    },
+                                  )
+                                  : const Icon(
+                                    Icons.person,
+                                    size: 60,
+                                    color: Colors.grey,
+                                  ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 이미지 관리 버튼 영역
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 이미지 변경 버튼
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: const Text(
+                            '이미지 변경',
+                            style: TextStyle(
+                              color: Color(0xFF3154FF),
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.underline,
                             ),
                           ),
                         ),
-                      ),
+
+                        // 프로필 이미지가 있을 때만 삭제 버튼 표시
+                        if (!_isProfileImageDeleted &&
+                            (_originalImageUrl != null ||
+                                _selectedImage != null))
+                          Row(
+                            children: [
+                              const Text(' | '),
+                              GestureDetector(
+                                onTap: _deleteProfileImage,
+                                child: Text(
+                                  '이미지 삭제',
+                                  style: TextStyle(
+                                    color: Colors.red[700],
+                                    fontWeight: FontWeight.w500,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -468,59 +589,6 @@ class _ProfileEditPageState extends State<ProfileEditPage>
         ),
       ),
     );
-  }
-
-  // 프로필 이미지 위젯 생성 함수
-  Widget _profileImageWidget() {
-    // 선택된 새 이미지가 있는 경우
-    if (_selectedImage != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(60),
-        child: Image.file(
-          File(_selectedImage!.path),
-          width: 120,
-          height: 120,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-    // 기존 이미지 URL이 있는 경우
-    else if (_originalImageUrl != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(60),
-        child: Image.network(
-          _originalImageUrl!,
-          width: 120,
-          height: 120,
-          fit: BoxFit.cover,
-          // 로딩 중 표시
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value:
-                    loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-              ),
-            );
-          },
-          // 에러 발생 시 기본 아이콘
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(
-              child: Icon(Icons.person, size: 64, color: Colors.white),
-            );
-          },
-        ),
-      );
-    }
-    // 이미지 없는 경우 기본 아이콘
-    else {
-      return const Center(
-        child: Icon(Icons.person, size: 64, color: Colors.white),
-      );
-    }
   }
 }
 

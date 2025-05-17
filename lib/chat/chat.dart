@@ -114,6 +114,8 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isLoading = true; // 로딩 상태
   String _callerName = ''; // 현재 발신자(본인) 이름 - 추가
   int _itemId = 0;
+  DateTime? _productStartDate;
+  DateTime? _productEndDate;
 
   // 상품 정보 관리 변수
   late Product _product;
@@ -223,6 +225,84 @@ class _ChatScreenState extends State<ChatScreen>
     _scrollToBottom();
   }
 
+  /// 상품 정보 업데이트 알림 처리 함수
+  void _handleTradeOfferUpdatedNotification(Map<String, dynamic> data) {
+    // roomId 확인 - 현재 채팅방의 업데이트만 처리
+    final int roomId = data['roomId'] ?? 0;
+    if (roomId != widget.chatRoomId) return;
+
+    print('DEBUG: 상품 정보 업데이트 알림 수신 - 방ID: $roomId');
+
+    // offer 데이터 추출
+    final offerData = data['offer'];
+    if (offerData == null) return;
+
+    // 이미지 URL 처리
+    String? fullImageUrl;
+    final imageUrl = offerData['imageUrl'];
+    if (imageUrl != null && imageUrl.isNotEmpty && imageUrl != "string") {
+      fullImageUrl = '${_apiClient.getDomain}$imageUrl';
+      print('DEBUG: 업데이트된 이미지 URL: $fullImageUrl');
+    }
+
+    // 날짜 정보 처리
+    DateTime? startDate;
+    DateTime? endDate;
+
+    if (offerData['borrowStartAt'] != null) {
+      try {
+        startDate = DateTime.parse(offerData['borrowStartAt']);
+        print('DEBUG: 업데이트된 시작일: $startDate');
+      } catch (e) {
+        print('시작일 파싱 오류: $e');
+      }
+    }
+
+    if (offerData['returnAt'] != null) {
+      try {
+        endDate = DateTime.parse(offerData['returnAt']);
+        print('DEBUG: 업데이트된 종료일: $endDate');
+      } catch (e) {
+        print('종료일 파싱 오류: $e');
+      }
+    }
+
+    // 상품 ID 업데이트
+    _itemId = offerData['itemId'] ?? _itemId;
+
+    // UI 업데이트
+    setState(() {
+      _product = Product(
+        title: offerData['title'] ?? '상품 정보 없음',
+        price: offerData['price']?.toString() ?? '0',
+        priceUnit: offerData['priceUnit'] ?? '일',
+        deposit: offerData['securityDeposit']?.toString() ?? '0',
+        imageUrl: fullImageUrl,
+      );
+
+      // 날짜 정보 업데이트
+      _productStartDate = startDate;
+      _productEndDate = endDate;
+
+      // 상품 정보 업데이트 메시지 추가
+      _messages.add(
+        ChatMessage(
+          text:
+              "판매자가 상품 정보를 수정했습니다.\n"
+              "가격: ${_convertPriceUnitToKorean(_product.priceUnit)} ${_formatPrice(_product.price)}원\n"
+              "보증금: ${_formatPrice(_product.deposit)}원"
+              "${_productStartDate != null && _productEndDate != null ? "\n기간: ${DateFormat('yyyy.MM.dd').format(_productStartDate!)} ~ ${DateFormat('yyyy.MM.dd').format(_productEndDate!)}" : ""}",
+          isMe: false,
+          timestamp: DateTime.now(),
+          senderName: "", // 시스템 메시지
+        ),
+      );
+    });
+
+    // 스크롤을 아래로 이동
+    _scrollToBottom();
+  }
+
   // API 클라이언트 초기화 및 메시지 로드
   Future<void> _initApiAndLoadMessages() async {
     // Future<void> <- 비동기 함수
@@ -291,6 +371,15 @@ class _ChatScreenState extends State<ChatScreen>
             final ApiClient apiClient = ApiClient();
             fullImageUrl = '${apiClient.getDomain}$imageUrl';
             print('DEBUG: 변환된 이미지 URL: $fullImageUrl');
+          }
+
+          // 날짜 정보 추출 및 저장
+          if (data['offer']['borrowStartAt'] != null) {
+            _productStartDate = DateTime.parse(data['offer']['borrowStartAt']);
+          }
+
+          if (data['offer']['returnAt'] != null) {
+            _productEndDate = DateTime.parse(data['offer']['returnAt']);
           }
 
           // 중요: 서버에서 받아온 상품 정보로 항상 업데이트
@@ -683,6 +772,22 @@ class _ChatScreenState extends State<ChatScreen>
     // 영어 단위를 한글로 매핑
     String priceUnit = _product.priceUnit;
 
+    // 날짜 정보 추가
+    DateTime startDate = DateTime.now();
+    DateTime endDate = startDate.add(const Duration(days: 6));
+
+    // API에서 가져온 기존 날짜 정보가 있으면 사용
+    if (_productStartDate != null) {
+      startDate = _productStartDate!;
+    }
+
+    if (_productEndDate != null) {
+      endDate = _productEndDate!;
+    }
+
+    // 날짜 포맷터
+    final dateFormat = DateFormat('yyyy년 MM월 dd일');
+
     // 영어 단위를 한글로 변환하는 매핑 로직 추가
     Map<String, String> unitMapping = {
       'Day': '일',
@@ -731,479 +836,627 @@ class _ChatScreenState extends State<ChatScreen>
               ),
               insetPadding: const EdgeInsets.symmetric(horizontal: 20),
               backgroundColor: Colors.white, // 배경색 흰색으로 명시적 설정
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                ), // 전체 컨테이너에 상하 패딩 추가
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 상품 정보 영역
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        24,
-                        24,
-                        20,
-                      ), // 패딩 증가
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 상품 이미지
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child:
-                                _product.imageUrl != null &&
-                                        _product.imageUrl!.isNotEmpty
-                                    ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: Image.network(
-                                        _product.imageUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (
-                                          context,
-                                          error,
-                                          stackTrace,
-                                        ) {
-                                          print('이미지 로드 오류: $error');
-                                          return Icon(
-                                            Icons.image_not_supported,
-                                            color: Colors.grey[500],
-                                          );
-                                        },
+              child: SingleChildScrollView(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                  ), // 전체 컨테이너에 상하 패딩 추가
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 상품 정보 영역
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          24,
+                          24,
+                          24,
+                          20,
+                        ), // 패딩 증가
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 상품 이미지
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child:
+                                  _product.imageUrl != null &&
+                                          _product.imageUrl!.isNotEmpty
+                                      ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Image.network(
+                                          _product.imageUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (
+                                            context,
+                                            error,
+                                            stackTrace,
+                                          ) {
+                                            print('상품 수정 모달 이미지 로드 오류: $error');
+                                            print(
+                                              '이미지 URL: ${_product.imageUrl}',
+                                            );
+                                            return Icon(
+                                              Icons.image_not_supported,
+                                              color: Colors.grey[500],
+                                            );
+                                          },
+                                        ),
+                                      )
+                                      : Icon(
+                                        Icons.image,
+                                        color: Colors.grey[500],
                                       ),
-                                    )
-                                    : Icon(
-                                      Icons.image,
-                                      color: Colors.grey[500],
-                                    ),
-                          ),
-                          const SizedBox(width: 24), // 간격 증가
-                          // 상품 제목 (수정 불가 - 표시만 함)
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                            ),
+                            const SizedBox(width: 24), // 간격 증가
+                            // 상품 제목 (수정 불가 - 표시만 함)
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
 
-                    // 대여 가격 설정 영역
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        14,
-                        24,
-                        14,
-                      ), // 패딩 증가
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '대여 가격',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 20), // 간격 증가
-                          Row(
-                            children: [
-                              // 단위 선택 드롭다운 - 더 넓게 설정
-                              Container(
-                                width: 120, // 날짜 선택 영역 너비 명시적 설정
-                                padding: const EdgeInsets.only(bottom: 8),
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: Color(0xFFE2E2E2),
-                                      width: 1,
-                                    ),
-                                  ),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: priceUnit,
-                                    icon: const Icon(Icons.keyboard_arrow_down),
-                                    isDense: true,
-                                    isExpanded: true, // 드롭다운이 컨테이너 너비를 채우도록 설정
-                                    hint: const Text("단위"),
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 16,
-                                    ),
-                                    onChanged: (String? newValue) {
-                                      if (newValue != null) {
-                                        setDialogState(() {
-                                          priceUnit = newValue;
-                                        });
-                                      }
-                                    },
-                                    items:
-                                        priceUnits
-                                            .map<DropdownMenuItem<String>>((
-                                              String value,
-                                            ) {
-                                              return DropdownMenuItem<String>(
-                                                value: value,
-                                                child: Text(value),
-                                              );
-                                            })
-                                            .toList(),
-                                  ),
-                                ),
+                      // 대여 가격 설정 영역
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          24,
+                          14,
+                          24,
+                          14,
+                        ), // 패딩 증가
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '대여 가격',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(width: 20), // 간격 증가
-                              // 가격 입력 필드 - 아래 선만 있는 스타일로 변경
-                              Expanded(
-                                child: Container(
+                            ),
+                            const SizedBox(height: 20), // 간격 증가
+                            Row(
+                              children: [
+                                // 단위 선택 드롭다운 - 더 넓게 설정
+                                Container(
+                                  width: 120, // 날짜 선택 영역 너비 명시적 설정
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     border: Border(
                                       bottom: BorderSide(
-                                        color:
-                                            isPriceValid
-                                                ? const Color(0xFFE2E2E2)
-                                                : Colors.red,
+                                        color: Color(0xFFE2E2E2),
                                         width: 1,
                                       ),
                                     ),
                                   ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: priceController,
-                                          keyboardType: TextInputType.number,
-                                          // 숫자만 입력되도록 필터 추가
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter
-                                                .digitsOnly,
-                                          ],
-                                          textAlign: TextAlign.right,
-                                          onChanged: (value) {
-                                            price = value;
-                                            // 유효성 검사 상태 업데이트
-                                            setDialogState(() {
-                                              isPriceValid = value.isNotEmpty;
-                                            });
-                                          },
-                                          decoration: const InputDecoration(
-                                            border: InputBorder.none,
-                                            contentPadding: EdgeInsets.zero,
-                                            isDense: true,
-                                            hintText: '가격 입력',
-                                          ),
-                                          style: const TextStyle(fontSize: 16),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: priceUnit,
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down,
+                                      ),
+                                      isDense: true,
+                                      isExpanded:
+                                          true, // 드롭다운이 컨테이너 너비를 채우도록 설정
+                                      hint: const Text("단위"),
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 16,
+                                      ),
+                                      onChanged: (String? newValue) {
+                                        if (newValue != null) {
+                                          setDialogState(() {
+                                            priceUnit = newValue;
+                                          });
+                                        }
+                                      },
+                                      items:
+                                          priceUnits
+                                              .map<DropdownMenuItem<String>>((
+                                                String value,
+                                              ) {
+                                                return DropdownMenuItem<String>(
+                                                  value: value,
+                                                  child: Text(value),
+                                                );
+                                              })
+                                              .toList(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 20), // 간격 증가
+                                // 가격 입력 필드 - 아래 선만 있는 스타일로 변경
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color:
+                                              isPriceValid
+                                                  ? const Color(0xFFE2E2E2)
+                                                  : Colors.red,
+                                          width: 1,
                                         ),
                                       ),
-                                      const Text(
-                                        '원',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          // 가격 오류 메시지
-                          if (!isPriceValid)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: Text(
-                                '가격을 입력해주세요',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    // 구분선
-                    Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-
-                    // 보증금 설정 영역 - 아래 선만 있는 동일한 디자인
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        20,
-                        24,
-                        20,
-                      ), // 패딩 증가
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '보증금',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 20), // 간격 증가
-                          Container(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color:
-                                      isDepositValid
-                                          ? const Color(0xFFE2E2E2)
-                                          : Colors.red,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: depositController,
-                                    keyboardType: TextInputType.number,
-                                    // 숫자만 입력되도록 필터 추가
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    textAlign: TextAlign.right,
-                                    onChanged: (value) {
-                                      deposit = value;
-                                      // 유효성 검사 상태 업데이트
-                                      setDialogState(() {
-                                        isDepositValid = value.isNotEmpty;
-                                      });
-                                    },
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
-                                      isDense: true,
-                                      hintText: '보증금 입력',
                                     ),
-                                    style: const TextStyle(fontSize: 16),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: priceController,
+                                            keyboardType: TextInputType.number,
+                                            // 숫자만 입력되도록 필터 추가
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                            ],
+                                            textAlign: TextAlign.right,
+                                            onChanged: (value) {
+                                              price = value;
+                                              // 유효성 검사 상태 업데이트
+                                              setDialogState(() {
+                                                isPriceValid = value.isNotEmpty;
+                                              });
+                                            },
+                                            decoration: const InputDecoration(
+                                              border: InputBorder.none,
+                                              contentPadding: EdgeInsets.zero,
+                                              isDense: true,
+                                              hintText: '가격 입력',
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                        const Text(
+                                          '원',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                const Text('원', style: TextStyle(fontSize: 16)),
                               ],
                             ),
-                          ),
-                          // 보증금 오류 메시지
-                          if (!isDepositValid)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: Text(
-                                '보증금을 입력해주세요',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
+                            // 가격 오류 메시지
+                            if (!isPriceValid)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '가격을 입력해주세요',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
 
-                    // 하단 버튼 영역 (우측 배치)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        14,
-                        24,
-                        24,
-                      ), // 패딩 증가
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          // 취소 버튼
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(); // 모달 닫기
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.black54,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
-                              ),
-                            ),
-                            child: const Text(
-                              '취소',
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ),
-                          const SizedBox(width: 10), // 간격 증가
-                          // 수정하기 버튼 - 그림자 제거
-                          ElevatedButton(
-                            onPressed:
-                                isFormValid()
-                                    ? () {
-                                      // 한글 단위를 영어로 다시 변환
-                                      Map<String, String> reverseUnitMapping = {
-                                        '일': 'Day',
-                                        '주': 'Week',
-                                        '월': 'Month',
-                                        '년': 'Year',
-                                      };
+                      // 구분선
+                      Divider(height: 1, thickness: 1, color: Colors.grey[200]),
 
-                                      // 저장할 단위 값
-                                      String serverPriceUnit = priceUnit;
-                                      if (reverseUnitMapping.containsKey(
-                                        priceUnit,
-                                      )) {
-                                        serverPriceUnit =
-                                            reverseUnitMapping[priceUnit]!;
-                                      }
-
-                                      Navigator.of(context).pop(); // 먼저 모달 닫기
-
-                                      // 구매자 이름 찾기 (채팅방의 상대방)
-                                      String buyerName = '';
-                                      for (var user in _users) {
-                                        if (user['name'] != _callerName) {
-                                          buyerName = user['name'];
-                                          break;
-                                        }
-                                      }
-
-                                      // TradeButtonService의 updateProductOffer 함수 호출
-                                      final tradeButtonService =
-                                          TradeButtonService();
-                                      tradeButtonService.updateProductOffer(
-                                        itemId: _itemId,
-                                        title: title,
-                                        price: price,
-                                        priceUnit: serverPriceUnit,
-                                        deposit: deposit,
-                                        buyerName: buyerName,
-                                        // 수정하기 버튼 onPressed 콜백에서 onSuccess 부분 수정
-                                        onSuccess: (message) {
-                                          // 위젯이 여전히 마운트 상태인지 확인
-                                          if (mounted) {
-                                            // 성공 시 처리
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(content: Text(message)),
-                                            );
-
-                                            // 콤마 제거하고 순수 숫자값만 저장
-                                            final cleanPrice = price.replaceAll(
-                                              ',',
-                                              '',
-                                            );
-                                            final cleanDeposit = deposit
-                                                .replaceAll(',', '');
-
-                                            // 상품 정보 업데이트 - WidgetsBinding을 사용하여 다음 프레임에서 확실히 업데이트
-                                            WidgetsBinding.instance.addPostFrameCallback((
-                                              _,
-                                            ) {
-                                              if (mounted) {
-                                                setState(() {
-                                                  _product = Product(
-                                                    title: title,
-                                                    price:
-                                                        cleanPrice, // 깨끗한 숫자값만 저장
-                                                    priceUnit: serverPriceUnit,
-                                                    deposit:
-                                                        cleanDeposit, // 깨끗한 숫자값만 저장
-                                                    imageUrl: _product.imageUrl,
-                                                  );
-
-                                                  // 상품 수정 완료 메시지 추가
-                                                  _messages.add(
-                                                    ChatMessage(
-                                                      text:
-                                                          "상품 정보를 수정했습니다.\n가격: ${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(cleanPrice)}원\n보증금: ${_formatPrice(cleanDeposit)}원",
-                                                      isMe: true,
-                                                      timestamp: DateTime.now(),
-                                                      senderName: _callerName,
-                                                    ),
-                                                  );
-                                                });
-
-                                                // 스크롤을 맨 아래로 이동
-                                                _scrollToBottom();
-
-                                                // 디버깅용 로그
-                                                print(
-                                                  '상품 정보 업데이트됨: ${_product.price}, ${_product.deposit}, ${_product.priceUnit}',
-                                                );
-                                              }
-                                            });
-                                          }
-                                        },
-                                        onError: (errorMessage) {
-                                          // 오류 시 처리 - 여기도 마찬가지로 mounted 체크 추가
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(errorMessage),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      );
-                                    }
-                                    : null, // 유효하지 않으면 버튼 비활성화
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3154FF),
-                              foregroundColor: Colors.white,
-                              // 비활성화된 버튼의 스타일
-                              disabledBackgroundColor: Colors.grey[300],
-                              disabledForegroundColor: Colors.grey[600],
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
-                              ),
-                              elevation: 0, // 기본 그림자 제거
-                              shadowColor: Colors.transparent, // 그림자 색상 투명하게
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ).copyWith(
-                              overlayColor: MaterialStateProperty.resolveWith<
-                                Color?
-                              >((Set<MaterialState> states) {
-                                if (states.contains(MaterialState.hovered)) {
-                                  return const Color(
-                                    0xFF3154FF,
-                                  ).withOpacity(0.8); // 호버 시 배경색만 약간 변경
-                                }
-                                return null;
-                              }),
-                            ),
-                            child: const Text(
-                              '수정하기',
+                      // 보증금 설정 영역 - 아래 선만 있는 동일한 디자인
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          24,
+                          20,
+                          24,
+                          20,
+                        ), // 패딩 증가
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '보증금',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 20), // 간격 증가
+                            Container(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color:
+                                        isDepositValid
+                                            ? const Color(0xFFE2E2E2)
+                                            : Colors.red,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: depositController,
+                                      keyboardType: TextInputType.number,
+                                      // 숫자만 입력되도록 필터 추가
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      textAlign: TextAlign.right,
+                                      onChanged: (value) {
+                                        deposit = value;
+                                        // 유효성 검사 상태 업데이트
+                                        setDialogState(() {
+                                          isDepositValid = value.isNotEmpty;
+                                        });
+                                      },
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                        isDense: true,
+                                        hintText: '보증금 입력',
+                                      ),
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  const Text(
+                                    '원',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // 보증금 오류 메시지
+                            if (!isDepositValid)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '보증금을 입력해주세요',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+
+                      Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '대여 가능 기간',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // 시작일 선택
+                            InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: startDate,
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
+                                );
+                                if (picked != null && picked != startDate) {
+                                  setDialogState(() {
+                                    startDate = picked;
+                                    if (startDate.isAfter(endDate)) {
+                                      endDate = startDate.add(
+                                        const Duration(days: 1),
+                                      );
+                                    }
+                                  });
+                                }
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      dateFormat.format(startDate),
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                    const Text(
+                                      '부터',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // 종료일 선택
+                            InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: endDate,
+                                  firstDate: startDate,
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
+                                );
+                                if (picked != null && picked != endDate) {
+                                  setDialogState(() {
+                                    endDate = picked;
+                                  });
+                                }
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      dateFormat.format(endDate),
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                    const Text(
+                                      '까지',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 하단 버튼 영역 (우측 배치)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          24,
+                          14,
+                          24,
+                          24,
+                        ), // 패딩 증가
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // 취소 버튼
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(); // 모달 닫기
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.black54,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                              ),
+                              child: const Text(
+                                '취소',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            const SizedBox(width: 10), // 간격 증가
+                            // 수정하기 버튼 - 그림자 제거
+                            ElevatedButton(
+                              onPressed:
+                                  isFormValid()
+                                      ? () {
+                                        // 한글 단위를 영어로 다시 변환
+                                        Map<String, String> reverseUnitMapping =
+                                            {
+                                              '일': 'Day',
+                                              '주': 'Week',
+                                              '월': 'Month',
+                                              '년': 'Year',
+                                            };
+
+                                        // 저장할 단위 값
+                                        String serverPriceUnit = priceUnit;
+                                        if (reverseUnitMapping.containsKey(
+                                          priceUnit,
+                                        )) {
+                                          serverPriceUnit =
+                                              reverseUnitMapping[priceUnit]!;
+                                        }
+
+                                        // 날짜 포맷팅
+                                        String startDateStr = DateFormat(
+                                          'yyyy-MM-ddTHH:mm:ss.000Z',
+                                        ).format(startDate);
+                                        String endDateStr = DateFormat(
+                                          'yyyy-MM-ddTHH:mm:ss.000Z',
+                                        ).format(endDate);
+
+                                        Navigator.of(context).pop(); // 먼저 모달 닫기
+
+                                        // 구매자 이름 찾기 (채팅방의 상대방)
+                                        String buyerName = '';
+                                        for (var user in _users) {
+                                          if (user['name'] != _callerName) {
+                                            buyerName = user['name'];
+                                            break;
+                                          }
+                                        }
+
+                                        // TradeButtonService의 updateProductOffer 함수 호출
+                                        final tradeButtonService =
+                                            TradeButtonService();
+                                        tradeButtonService.updateProductOffer(
+                                          itemId: _itemId,
+                                          title: title,
+                                          price: price,
+                                          priceUnit: serverPriceUnit,
+                                          deposit: deposit,
+                                          buyerName: buyerName,
+                                          borrowStartAt:
+                                              startDateStr, // 시작 날짜 추가
+                                          returnAt: endDateStr, // 종료 날짜 추가
+                                          // 수정하기 버튼 onPressed 콜백에서 onSuccess 부분 수정
+                                          onSuccess: (message) {
+                                            // 위젯이 여전히 마운트 상태인지 확인
+                                            if (mounted) {
+                                              // 성공 시 처리
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(message),
+                                                ),
+                                              );
+
+                                              // 콤마 제거하고 순수 숫자값만 저장
+                                              final cleanPrice = price
+                                                  .replaceAll(',', '');
+                                              final cleanDeposit = deposit
+                                                  .replaceAll(',', '');
+
+                                              // 상품 정보 업데이트 - WidgetsBinding을 사용하여 다음 프레임에서 확실히 업데이트
+                                              WidgetsBinding.instance.addPostFrameCallback((
+                                                _,
+                                              ) {
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _product = Product(
+                                                      title: title,
+                                                      price:
+                                                          cleanPrice, // 깨끗한 숫자값만 저장
+                                                      priceUnit:
+                                                          serverPriceUnit,
+                                                      deposit:
+                                                          cleanDeposit, // 깨끗한 숫자값만 저장
+                                                      imageUrl:
+                                                          _product.imageUrl,
+                                                    );
+
+                                                    // 날짜 정보 저장
+                                                    _productStartDate =
+                                                        startDate;
+                                                    _productEndDate = endDate;
+
+                                                    // 상품 수정 완료 메시지 추가
+                                                    _messages.add(
+                                                      ChatMessage(
+                                                        text:
+                                                            "상품 정보를 수정했습니다.\n가격: ${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(cleanPrice)}원\n보증금: ${_formatPrice(cleanDeposit)}원\n기간: ${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}",
+                                                        isMe: true,
+                                                        timestamp:
+                                                            DateTime.now(),
+                                                        senderName: _callerName,
+                                                      ),
+                                                    );
+                                                  });
+
+                                                  // 스크롤을 맨 아래로 이동
+                                                  _scrollToBottom();
+
+                                                  // 디버깅용 로그
+                                                  print(
+                                                    '상품 정보 업데이트됨: ${_product.price}, ${_product.deposit}, ${_product.priceUnit}',
+                                                  );
+                                                }
+                                              });
+                                            }
+                                          },
+                                          onError: (errorMessage) {
+                                            // 오류 시 처리 - 여기도 마찬가지로 mounted 체크 추가
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(errorMessage),
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      }
+                                      : null, // 유효하지 않으면 버튼 비활성화
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF3154FF),
+                                foregroundColor: Colors.white,
+                                // 비활성화된 버튼의 스타일
+                                disabledBackgroundColor: Colors.grey[300],
+                                disabledForegroundColor: Colors.grey[600],
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                elevation: 0, // 기본 그림자 제거
+                                shadowColor: Colors.transparent, // 그림자 색상 투명하게
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ).copyWith(
+                                overlayColor: MaterialStateProperty.resolveWith<
+                                  Color?
+                                >((Set<MaterialState> states) {
+                                  if (states.contains(MaterialState.hovered)) {
+                                    return const Color(
+                                      0xFF3154FF,
+                                    ).withOpacity(0.8); // 호버 시 배경색만 약간 변경
+                                  }
+                                  return null;
+                                }),
+                              ),
+                              child: const Text(
+                                '수정하기',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -1568,17 +1821,17 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 
-  // 상품 정보 UI 함수 개선
+  // 상품 정보 UI 함수 수정
   Widget _buildProductInfo() {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)), // 하단 구분선
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
       ),
       child: Row(
         children: [
-          // 상품 이미지 - API에서 가져온 이미지가 있으면 표시
+          // 상품 이미지 - 수정된 이미지 로드 로직
           Container(
             width: 80,
             height: 80,
@@ -1595,6 +1848,7 @@ class _ChatScreenState extends State<ChatScreen>
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           print('이미지 로드 오류: $error');
+                          print('이미지 URL: ${_product.imageUrl}');
                           return Icon(
                             Icons.image_not_supported,
                             color: Colors.grey[500],
@@ -1604,13 +1858,13 @@ class _ChatScreenState extends State<ChatScreen>
                     )
                     : Icon(Icons.image, color: Colors.grey[500]),
           ),
-          const SizedBox(width: 12), // 간격
-          // 상품 정보 (제목 및 가격)
+          const SizedBox(width: 12),
+
+          // 상품 정보 텍스트 영역 - 기존 코드에서 날짜 정보 추가한 부분 유지
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 상품명
                 Text(
                   _product.title,
                   style: const TextStyle(
@@ -1618,7 +1872,7 @@ class _ChatScreenState extends State<ChatScreen>
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 4), // 간격 추가
+                const SizedBox(height: 4),
                 // 대여 가격
                 Text(
                   '${_convertPriceUnitToKorean(_product.priceUnit)} ${_formatPrice(_product.price)}원',
@@ -1627,37 +1881,45 @@ class _ChatScreenState extends State<ChatScreen>
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 1), // 간격 줄임
+                const SizedBox(height: 1),
                 // 보증금
                 Text(
                   '보증금 ${_formatPrice(_product.deposit)}원',
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
+                // 대여 기간 표시
+                if (_productStartDate != null && _productEndDate != null)
+                  Text(
+                    '${DateFormat('yyyy.MM.dd').format(_productStartDate!)} ~ ${DateFormat('yyyy.MM.dd').format(_productEndDate!)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
               ],
             ),
           ),
-          // 사용자 역할에 따라 다른 버튼 표시
+
+          // 버튼 부분 - 기존 코드 유지
           TextButton(
             onPressed:
                 _isSeller
                     ? _showProductEditModal
                     : () {
-                      // TradeButtonService의 구매하기 모달 활용
                       final tradeButtonService = TradeButtonService();
                       tradeButtonService.showPurchaseModal(
                         context,
                         _product,
                         _callerName,
                         _itemId,
+                        startDate: _productStartDate,
+                        endDate: _productEndDate,
                       );
                     },
             style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFF3154FF), // #3154FF로 변경
-              foregroundColor: Colors.white, // 버튼 텍스트 색상
+              backgroundColor: const Color(0xFF3154FF),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8), // 둥근 모서리
+                borderRadius: BorderRadius.circular(8),
               ),
-              fixedSize: const Size(90, 30), // 버튼 크기 고정
+              fixedSize: const Size(90, 30),
             ),
             child: Text(_isSeller ? '상품수정' : '구매하기'),
           ),

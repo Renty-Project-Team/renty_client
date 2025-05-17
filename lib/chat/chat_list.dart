@@ -265,17 +265,27 @@ class _ChatListPageState extends State<ChatListPage> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Theme.of(context).primaryColor,
-                  backgroundImage:
-                      chatRoom['profileImageUrl'] != null
-                          ? NetworkImage(chatRoom['profileImageUrl'])
-                          : null,
-                  child:
-                      chatRoom['profileImageUrl'] == null
-                          ? const Icon(Icons.person, color: Colors.white)
-                          : null,
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child:
+                        chatRoom['profileImageUrl'] != null
+                            ? Image.network(
+                              '${_apiClient.getDomain}${chatRoom['profileImageUrl']}',
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                print('채팅 프로필 이미지 로드 오류: $error');
+                                return Icon(Icons.person, color: Colors.white);
+                              },
+                            )
+                            : Icon(Icons.person, color: Colors.white),
+                  ),
                 ),
                 if (unreadCount > 0)
                   Positioned(
@@ -355,6 +365,11 @@ class _ChatListPageState extends State<ChatListPage> {
     try {
       final chatRoomId = chatRoom['chatRoomId'];
       final roomName = chatRoom['roomName'] ?? '이름 없음';
+      // 프로필 이미지 URL에 도메인 추가
+      final profileImageUrl =
+          chatRoom['profileImageUrl'] != null
+              ? '${_apiClient.getDomain}${chatRoom['profileImageUrl']}'
+              : null;
 
       Navigator.of(context)
           .push(
@@ -363,7 +378,7 @@ class _ChatListPageState extends State<ChatListPage> {
                   (context) => ChatScreen(
                     chatRoomId: chatRoomId,
                     roomName: roomName,
-                    profileImageUrl: chatRoom['profileImageUrl'],
+                    profileImageUrl: profileImageUrl,
                     product: null,
                     isBuyer: chatRoom['isBuyer'] ?? true,
                   ),

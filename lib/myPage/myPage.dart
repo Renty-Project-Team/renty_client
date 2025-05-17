@@ -93,43 +93,50 @@ class _ProfilePageState extends State<ProfilePage> {
     HapticFeedback.lightImpact();
 
     if (title == '회원 정보 수정') {
-      // API 호출해서 사용자 정보 가져오기
       try {
+        // 사용자 정보를 API에서 가져오기
         final response = await _apiClient.client.get('/My/profile');
 
         if (response.statusCode == 200) {
           final data = response.data;
 
-          UserInfoData userInfo = UserInfoData(
+          // UserInfoData 객체 생성
+          final userInfo = UserInfoData(
             name: data['name'] ?? '',
             email: data['email'] ?? '',
-            phoneNumber: data['phoneNumber'] ?? '', // phone을 phoneNumber로 수정
+            phoneNumber: data['phoneNumber'] ?? '',
             userName: data['userName'] ?? '',
             accountNumber: data['accountNumber'],
           );
 
-          Navigator.push(
+          // 회원 정보 수정 페이지로 이동
+          final result = await Navigator.push<UserInfoData>(
             context,
             MaterialPageRoute(
               builder: (context) => UserInfoEditPage(initialInfo: userInfo),
             ),
-          ).then((value) {
-            if (value != null) {
-              // 정보 업데이트 성공 메시지
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('회원 정보가 업데이트되었습니다')));
-            }
-          });
+          );
+
+          // 정보가 업데이트되었으면 UI 갱신
+          if (result != null) {
+            // 필요한 경우 상태 업데이트
+            setState(() {
+              _userName = result.userName; // 닉네임이 변경된 경우 업데이트
+            });
+
+            // 프로필 페이지 새로고침
+            _loadProfileData();
+          }
         } else {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('회원 정보를 불러오는데 실패했습니다')));
+          ).showSnackBar(const SnackBar(content: Text('회원 정보를 불러오는데 실패했습니다.')));
         }
       } catch (e) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+        print('회원 정보 로드 오류: $e');
       }
     } else if (title == '수익금') {
       // 수익금 페이지로 이동
@@ -328,12 +335,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   ? ClipRRect(
                     borderRadius: BorderRadius.circular(32),
                     child: Image.network(
-                      _profileImageUrl!,
+                      '${_apiClient.getDomain}${_profileImageUrl!}', // 서버 도메인 추가
                       fit: BoxFit.cover,
                       width: 64,
                       height: 64,
                       errorBuilder: (context, error, stackTrace) {
                         // 이미지 로드 실패 시 기본 아이콘 표시
+                        print('프로필 이미지 로드 오류: $error');
                         return Icon(Icons.person, size: 32, color: Colors.grey);
                       },
                     ),
@@ -365,31 +373,30 @@ class _ProfilePageState extends State<ProfilePage> {
           child: InkWell(
             onTap: () async {
               // 현재 사용자 프로필 데이터
-              ProfileData userProfile = ProfileData(
-                nickname: _userName, // API에서 가져온 사용자 닉네임
-                imageUrl: _profileImageUrl, // API에서 가져온 이미지 URL
-              );
+              final initialProfile = {
+                'nickname': _userName, // API에서 가져온 사용자 닉네임
+                'imageUrl': _profileImageUrl, // API에서 가져온 이미지 URL
+              };
 
-              // 프로필 수정 페이지로 이동하면서 데이터 전달
-              final ProfileData? result = await Navigator.push(
+              // 프로필 수정 페이지로 이동하면서 데이터 전달 (Map 타입으로 일관되게 유지)
+              final result = await Navigator.push<Map<String, dynamic>>(
                 context,
                 MaterialPageRoute(
                   builder:
-                      (context) => ProfileEditPage(initialProfile: userProfile),
+                      (context) =>
+                          ProfileEditPage(initialProfile: initialProfile),
                 ),
               );
 
-              // 결과 데이터가 있으면 처리 (화면 갱신 등)
+              // 결과 데이터가 있으면 처리
               if (result != null) {
                 setState(() {
-                  _userName = result.nickname;
-                  _profileImageUrl = result.imageUrl;
+                  _userName = result['userName'];
+                  _profileImageUrl = result['profileImage'];
                 });
 
-                // 업데이트 성공 메시지
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('프로필이 업데이트되었습니다')));
+                // 프로필 페이지 새로고침
+                _loadProfileData();
               }
             },
             // 클릭 효과 색상을 연한 회색으로 변경
