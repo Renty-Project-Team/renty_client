@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:renty_client/core/api_client.dart';
 import 'package:intl/intl.dart';
 
 class Notice {
@@ -30,7 +29,6 @@ class NoticeListPage extends StatefulWidget {
 
 class _NoticeListPageState extends State<NoticeListPage> {
   bool _isLoading = true;
-  final ApiClient _apiClient = ApiClient();
   List<Notice> _notices = [];
 
   @override
@@ -39,33 +37,9 @@ class _NoticeListPageState extends State<NoticeListPage> {
     _loadNotices();
   }
 
-  // 공지사항 로드 함수 (실제로는 API 연동 필요)
   Future<void> _loadNotices() async {
-    // 실제 구현에서는 API 호출
-    // try {
-    //   final response = await _apiClient.client.get('/api/notices');
-    //   if (response.statusCode == 200) {
-    //     final List<dynamic> data = response.data;
-    //     setState(() {
-    //       _notices = data.map((item) => Notice(
-    //         id: item['id'],
-    //         title: item['title'],
-    //         content: item['content'],
-    //         date: DateTime.parse(item['date']),
-    //         isImportant: item['isImportant'] ?? false,
-    //         isNew: item['isNew'] ?? false,
-    //       )).toList();
-    //       _isLoading = false;
-    //     });
-    //   }
-    // } catch (e) {
-    //   print('공지사항 로드 오류: $e');
-    //   setState(() {
-    //     _isLoading = false;
-    //   });
-    // }
 
-    // 임시 데이터 생성 (API 연동 전까지 사용)
+    // 임시 데이터 생성 
     await Future.delayed(const Duration(seconds: 1)); // 로딩 효과를 위한 지연
 
     setState(() {

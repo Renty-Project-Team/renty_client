@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키지
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart'; // 로컬 스토리지 사용
 import '../core/api_client.dart'; // API 클라이언트 추가
 import '../chat/signalr_service.dart'; // SignalR 서비스 추가
 import '../chat/trade_button_service.dart';
@@ -1649,7 +1648,7 @@ class _ChatScreenState extends State<ChatScreen>
                         context,
                         _product,
                         _callerName,
-                        _itemId
+                        _itemId,
                       );
                     },
             style: TextButton.styleFrom(

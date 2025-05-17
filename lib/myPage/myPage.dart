@@ -9,10 +9,11 @@ import 'package:renty_client/myPage/profileEdit.dart';
 import 'package:renty_client/myPage/writeReview.dart';
 import 'package:renty_client/myPage/userInfoEdit.dart'; // 회원 정보 수정 페이지 추가
 import 'package:renty_client/myPage/appInfo.dart'; // 앱 정보 페이지 추가
-import 'package:renty_client/myPage/noticeList.dart'; // 추가: 공지사항 페이지 임포트
+import 'package:renty_client/myPage/noticeList.dart'; // 공지사항 페이지 추가가
 import 'package:renty_client/myPage/faqPage.dart'; // FAQ 페이지 추가
 import 'package:renty_client/myPage/inquiryChatbot.dart'; // 1:1 문의 챗봇 페이지 추가
 import 'package:renty_client/myPage/incomePage.dart'; // 수익금 페이지 추가
+import 'package:renty_client/myPage/myPostBoard.dart'; // 내 대여 게시글 페이지 추가가
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -135,6 +136,12 @@ class _ProfilePageState extends State<ProfilePage> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const IncomePage()),
+      );
+    } else if (title == '내 대여 게시글') {
+      // 내 대여 게시글 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MyPostListPage()),
       );
     } else if (title == '대여중인 제품목록') {
       // 기존 코드 유지

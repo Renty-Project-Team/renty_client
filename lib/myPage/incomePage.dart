@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:renty_client/core/api_client.dart';
-import 'dart:math';
 
 class IncomePage extends StatefulWidget {
   const IncomePage({Key? key}) : super(key: key);
@@ -81,15 +80,13 @@ class _IncomePageState extends State<IncomePage>
       if (response.statusCode == 200) {
         final data = response.data;
         setState(() {
-          _income = 2342314; // data['totalIncome'] ?? 0;
+          _income = data['totalIncome'] ?? 0;
           _userName = data['userName'] ?? '';
           _isLoading = false;
         });
 
         // 데이터 로드 후 약간의 지연 후 애니메이션 시작
         Future.delayed(Duration(milliseconds: 400), () {
-          // 애니메이션 시작 시 가벼운 진동 피드백
-          HapticFeedback.lightImpact();
           _animationController.forward();
         });
       } else {
@@ -126,7 +123,7 @@ class _IncomePageState extends State<IncomePage>
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         title: const Text(
-          '나의 수익금',
+          '수익금',
           style: TextStyle(
             color: Colors.black,
             fontSize: 18,

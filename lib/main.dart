@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:renty_client/Example/dummy_my_page.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/login/login.dart';
 import 'package:renty_client/product_upload.dart';
