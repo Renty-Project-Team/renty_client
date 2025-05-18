@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // 날짜 및 숫자 포맷팅을 위한 패키지
 import 'dart:async';
+import 'dart:convert';
 import '../core/api_client.dart'; // API 클라이언트 추가
 import '../chat/signalr_service.dart'; // SignalR 서비스 추가
 import '../chat/trade_button_service.dart';
@@ -34,6 +35,9 @@ class ChatMessage {
   final bool isMe; // 내가 보낸 메시지인지 여부
   final DateTime timestamp; // 메시지 전송 시간
   final String? senderName; // 발신자 이름 추가
+  final String messageType; // 메시지 타입: 'text', 'product_update'
+  final Map<String, dynamic>? productData; // 상품 정보 데이터
+  final String? status; // 메시지 상태: 'sending', 'sent', 'error'
 
   // 생성자: 모든 필드가 필수값
   ChatMessage({
@@ -41,6 +45,9 @@ class ChatMessage {
     required this.isMe,
     required this.timestamp,
     this.senderName, // 선택적 매개변수로 변경
+    this.messageType = 'text', // 기본값은 일반 텍스트 메시지
+    this.productData,
+    this.status,
   });
 }
 
@@ -106,7 +113,6 @@ class _ChatScreenState extends State<ChatScreen>
   final ApiClient _apiClient = ApiClient(); // API 클라이언트 인스턴스
   final SignalRService _signalRService = SignalRService();
   StreamSubscription<ChatMessage>? _messageSubscription;
-  
 
   // 채팅방 정보
   bool _isSeller = false; // 판매자 여부
@@ -118,7 +124,6 @@ class _ChatScreenState extends State<ChatScreen>
   DateTime? _productStartDate;
   DateTime? _productEndDate;
   OverlayState? _cachedOverlay;
-  
 
   // 상품 정보 관리 변수
   late Product _product;
@@ -154,6 +159,11 @@ class _ChatScreenState extends State<ChatScreen>
   String _notificationMessage = '';
   Timer? _hideTimer;
 
+  // 플래그 변수 추가 - 위젯이 제거되었는지 추적
+  bool _isDisposed = false;
+  double _screenHeight = 0.0;
+  double _screenWidth = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -179,15 +189,44 @@ class _ChatScreenState extends State<ChatScreen>
           deposit: "5000",
         );
 
+    // 초기화는 addPostFrameCallback으로 안전하게 진행
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _init();
+      if (mounted) {
+        _init();
+      }
     });
+
+    // 스크롤 리스너는 컨트롤러 생성 시점에 단 한 번만 추가
+    _scrollController.addListener(_scrollListener);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _cachedOverlay = Overlay.of(context);
+
+    // 화면 크기 정보 저장
+    _screenHeight = MediaQuery.of(context).size.height;
+    _screenWidth = MediaQuery.of(context).size.width;
+  }
+
+  void _scrollListener() {
+    // 위젯이 마운트되어 있는지 확인
+    if (!mounted) return;
+
+    if (_scrollController.hasClients) {
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.offset;
+      // 저장된 화면 높이 사용
+      final delta = _screenHeight * 0.2;
+
+      // 상태 업데이트 전에도 mounted 확인
+      if (mounted) {
+        setState(() {
+          // 여기서 스크롤 버튼 표시 여부 등의 상태 업데이트
+        });
+      }
+    }
   }
 
   @override
@@ -201,6 +240,13 @@ class _ChatScreenState extends State<ChatScreen>
       }
     }
     super.deactivate();
+  }
+
+  // 안전한 setState 래퍼 함수 추가
+  void _safeSetState(VoidCallback callback) {
+    if (!_isDisposed && mounted) {
+      setState(callback);
+    }
   }
 
   Future<void> _init() async {
@@ -256,7 +302,7 @@ class _ChatScreenState extends State<ChatScreen>
 
   /// 상품 정보 업데이트 알림 처리 함수
   void _handleTradeOfferUpdatedNotification(Map<String, dynamic> data) {
-    if (!mounted) return;
+    if (!mounted || _isDisposed) return;
 
     // roomId 확인 - 현재 채팅방의 업데이트만 처리
     final int roomId = data['roomId'] ?? 0;
@@ -307,38 +353,49 @@ class _ChatScreenState extends State<ChatScreen>
     _itemId = offerData['itemId'] ?? _itemId;
 
     // UI 업데이트
-    if (mounted) {
-      setState(() {
-        _product = Product(
-          title: offerData['title'] ?? '상품 정보 없음',
-          price: offerData['price']?.toString() ?? '0',
-          priceUnit: offerData['priceUnit'] ?? '일',
-          deposit: offerData['securityDeposit']?.toString() ?? '0',
-          imageUrl: fullImageUrl,
-        );
+    if (!mounted || _isDisposed) return;
 
-        // 날짜 정보 업데이트
-        _productStartDate = startDate;
-        _productEndDate = endDate;
+    _safeSetState(() {
+      _product = Product(
+        title: offerData['title'] ?? '상품 정보 없음',
+        price: offerData['price']?.toString() ?? '0',
+        priceUnit: offerData['priceUnit'] ?? '일',
+        deposit: offerData['securityDeposit']?.toString() ?? '0',
+        imageUrl: fullImageUrl,
+      );
 
-        // 상품 정보 업데이트 메시지 추가
-        _messages.add(
-          ChatMessage(
-            text:
-                "판매자가 상품 정보를 수정했습니다.\n"
-                "가격: ${_convertPriceUnitToKorean(_product.priceUnit)} ${_formatPrice(_product.price)}원\n"
-                "보증금: ${_formatPrice(_product.deposit)}원"
-                "${_productStartDate != null && _productEndDate != null ? "\n기간: ${DateFormat('yyyy.MM.dd').format(_productStartDate!)} ~ ${DateFormat('yyyy.MM.dd').format(_productEndDate!)}" : ""}",
-            isMe: false,
-            timestamp: DateTime.now(),
-            senderName: "", // 시스템 메시지
-          ),
-        );
-      });
+      // 날짜 정보 업데이트
+      _productStartDate = startDate;
+      _productEndDate = endDate;
 
-      // 스크롤을 아래로 이동
-      _scrollToBottom();
-    }
+      // 상품 정보 업데이트 카드 메시지 추가
+      _messages.add(
+        ChatMessage(
+          text: "판매자가 상품 정보를 수정했습니다",
+          isMe: false,
+          timestamp: DateTime.now(),
+          senderName: "", // 시스템 메시지
+          messageType: 'product_update',
+          productData: {
+            'title': _product.title,
+            'price': _formatPrice(_product.price),
+            'priceUnit': _convertPriceUnitToKorean(_product.priceUnit),
+            'deposit': _formatPrice(_product.deposit),
+            'startDate': startDate != null
+                ? DateFormat('yyyy-MM-dd').format(startDate)
+                : null,
+            'endDate': endDate != null
+                ? DateFormat('yyyy-MM-dd').format(endDate)
+                : null,
+            'imageUrl': fullImageUrl,
+          },
+          status: 'sent',
+        ),
+      );
+    });
+
+    // 스크롤을 아래로 이동
+    _scrollToBottom();
   }
 
   // API 클라이언트 초기화 및 메시지 로드
@@ -1417,9 +1474,54 @@ class _ChatScreenState extends State<ChatScreen>
                                           }
                                         }
 
-                                        // TradeButtonService의 updateProductOffer 함수 호출
-                                        final tradeButtonService =
-                                            TradeButtonService();
+                                        // 메시지 상태 관리를 위한 고유 ID 생성
+                                        final String messageId = DateTime.now().millisecondsSinceEpoch.toString();
+
+                                        // 상품 정보 데이터 준비
+                                        final productData = {
+                                          'title': title,
+                                          'price': _formatPrice(price),
+                                          'priceUnit': _convertPriceUnitToKorean(serverPriceUnit),
+                                          'deposit': _formatPrice(deposit),
+                                          'startDate': DateFormat('yyyy-MM-dd').format(startDate),
+                                          'endDate': DateFormat('yyyy-MM-dd').format(endDate),
+                                          'imageUrl': _product.imageUrl,
+                                          'messageId': messageId,
+                                        };
+
+                                        // 카드 형태의 메시지를 UI에 즉시 추가 (전송 중 상태)
+                                        _safeSetState(() {
+                                          _messages.add(
+                                            ChatMessage(
+                                              text: "상품 정보를 수정했습니다",
+                                              isMe: true,
+                                              timestamp: DateTime.now(),
+                                              senderName: _callerName,
+                                              messageType: 'product_update',
+                                              productData: productData,
+                                              status: 'sending', // 전송 중 상태로 표시
+                                            ),
+                                          );
+                                        });
+
+                                        // 스크롤을 아래로 이동
+                                        _scrollToBottom();
+
+                                        // 상품 데이터 JSON 생성
+                                        final requestData = {
+                                          'Type': 'Request', 
+                                          'Sender': _callerName,
+                                          'Data': {
+                                            'ProductName': title,
+                                            'RentalPrice': "${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(price)}원",
+                                            'Deposit': "${_formatPrice(deposit)}원",
+                                            'StartDate': DateFormat('yyyy-MM-dd').format(startDate),
+                                            'EndDate': DateFormat('yyyy-MM-dd').format(endDate)
+                                          }
+                                        };
+
+                                        // TradeButtonService의 updateProductOffer 함수로 API 호출
+                                        final tradeButtonService = TradeButtonService();
                                         tradeButtonService.updateProductOffer(
                                           itemId: _itemId,
                                           title: title,
@@ -1427,31 +1529,40 @@ class _ChatScreenState extends State<ChatScreen>
                                           priceUnit: serverPriceUnit,
                                           deposit: deposit,
                                           buyerName: buyerName,
-                                          borrowStartAt:
-                                              startDateStr, // 시작 날짜 추가
-                                          returnAt: endDateStr, // 종료 날짜 추가
+                                          borrowStartAt: startDateStr,
+                                          returnAt: endDateStr,
                                           onSuccess: (message) {
-                                            // 위젯이 여전히 마운트 상태인지 확인
-                                            if (!mounted) return; // 조기 반환으로 단순화
-
-                                            // 성공 시 처리
-                                            // ScaffoldMessenger.of(
-                                            //   context,
-                                            // ).showSnackBar(
-                                            //   SnackBar(content: Text(message)),
-                                            // );
+                                            if (!mounted || _isDisposed) return;
 
                                             // 콤마 제거하고 순수 숫자값만 저장
-                                            final cleanPrice = price.replaceAll(
-                                              ',',
-                                              '',
-                                            );
-                                            final cleanDeposit = deposit
-                                                .replaceAll(',', '');
+                                            final cleanPrice = price.replaceAll(',', '');
+                                            final cleanDeposit = deposit.replaceAll(',', '');
 
-                                            // 즉시 상태 업데이트 - setState 직전에도 다시 확인
-                                            if (mounted) {
-                                              setState(() {
+                                            // 서버로 메시지 전송 (Type: Request)
+                                            _signalRService.sendProductUpdateMessage(
+                                              widget.chatRoomId, 
+                                              jsonEncode(requestData)
+                                            ).then((_) {
+                                              // 성공적으로 전송된 경우 메시지 상태 업데이트
+                                              _safeSetState(() {
+                                                // 메시지 찾아서 상태 업데이트
+                                                final index = _messages.indexWhere((msg) => 
+                                                  msg.productData != null && 
+                                                  msg.productData!['messageId'] == messageId);
+                                                
+                                                if (index != -1) {
+                                                  _messages[index] = ChatMessage(
+                                                    text: _messages[index].text,
+                                                    isMe: _messages[index].isMe,
+                                                    timestamp: _messages[index].timestamp,
+                                                    senderName: _messages[index].senderName,
+                                                    messageType: _messages[index].messageType,
+                                                    productData: _messages[index].productData,
+                                                    status: 'sent',  // 성공적으로 전송됨
+                                                  );
+                                                }
+
+                                                // 상품 정보도 업데이트
                                                 _product = Product(
                                                   title: title,
                                                   price: cleanPrice,
@@ -1460,39 +1571,57 @@ class _ChatScreenState extends State<ChatScreen>
                                                   imageUrl: _product.imageUrl,
                                                 );
 
-                                                // 날짜 정보 저장
                                                 _productStartDate = startDate;
                                                 _productEndDate = endDate;
-
-                                                // 상품 수정 완료 메시지 추가
-                                                _messages.add(
-                                                  ChatMessage(
-                                                    text:
-                                                        "상품 정보를 수정했습니다.\n가격: ${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(cleanPrice)}원\n보증금: ${_formatPrice(cleanDeposit)}원\n기간: ${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}",
-                                                    isMe: true,
-                                                    timestamp: DateTime.now(),
-                                                    senderName: _callerName,
-                                                  ),
-                                                );
                                               });
-                                            }
-
-                                            // 상태 업데이트 후에도 여전히 마운트 상태인지 확인
-                                            if (mounted) {
-                                              _scrollToBottom();
-                                            }
+                                            }).catchError((e) {
+                                              // 전송 실패 시 메시지 상태 업데이트
+                                              _safeSetState(() {
+                                                final index = _messages.indexWhere((msg) => 
+                                                  msg.productData != null && 
+                                                  msg.productData!['messageId'] == messageId);
+                                                
+                                                if (index != -1) {
+                                                  _messages[index] = ChatMessage(
+                                                    text: _messages[index].text,
+                                                    isMe: _messages[index].isMe,
+                                                    timestamp: _messages[index].timestamp,
+                                                    senderName: _messages[index].senderName,
+                                                    messageType: _messages[index].messageType,
+                                                    productData: _messages[index].productData,
+                                                    status: 'error',  // 전송 실패
+                                                  );
+                                                }
+                                              });
+                                              
+                                              _showNotification('메시지 전송에 실패했습니다.');
+                                            });
                                           },
                                           onError: (errorMessage) {
-                                            // 오류 시 처리 - 여기도 마찬가지로 mounted 체크 추가
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(errorMessage),
-                                                ),
-                                              );
-                                            }
+                                            if (!mounted || _isDisposed) return;
+                                            
+                                            // API 호출 실패 시 메시지 상태 업데이트
+                                            _safeSetState(() {
+                                              final index = _messages.indexWhere((msg) => 
+                                                msg.productData != null && 
+                                                msg.productData!['messageId'] == messageId);
+                                              
+                                              if (index != -1) {
+                                                _messages[index] = ChatMessage(
+                                                  text: _messages[index].text,
+                                                  isMe: _messages[index].isMe,
+                                                  timestamp: _messages[index].timestamp,
+                                                  senderName: _messages[index].senderName,
+                                                  messageType: _messages[index].messageType,
+                                                  productData: _messages[index].productData,
+                                                  status: 'error',  // 전송 실패
+                                                );
+                                              }
+                                            });
+                                            
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text(errorMessage)),
+                                            );
                                           },
                                         );
                                       }
@@ -2095,6 +2224,265 @@ class _ChatScreenState extends State<ChatScreen>
   }) {
     final timestamp = formatTime(message.timestamp); // 시간 포맷팅
 
+    // 상품 카드 메시지 타입인 경우
+    if (message.messageType == 'product_update' && message.productData != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 시간 표시
+            if (showTimestamp)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6.0),
+                child: Text(
+                  timestamp,
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+
+            // 상품 카드 UI
+            Align(
+              alignment:
+                  message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.8,
+                margin: const EdgeInsets.symmetric(horizontal: 8.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 헤더 영역 (파란색 배경)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF3154FF),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Image.asset(
+                            'assets/icons/gift_icon.png',
+                            width: 24,
+                            height: 24,
+                            color: Colors.white,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                              Icons.card_giftcard,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '이 가격은 어떠세요?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // 상품 정보 영역
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 상품 이미지
+                          Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: message.productData!['imageUrl'] != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      message.productData!['imageUrl']!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) => Icon(
+                                        Icons.image_not_supported,
+                                        color: Colors.grey[400],
+                                        size: 30,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.image,
+                                    color: Colors.grey[400],
+                                    size: 30,
+                                  ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // 상품 정보 텍스트
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  message.productData!['title'] ?? '예시 상품',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                // 가격
+                                Row(
+                                  children: [
+                                    Text(
+                                      '대여 가격 :',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '일 ${message.productData!['price'] ?? '0'} 원',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                // 보증금
+                                Row(
+                                  children: [
+                                    Text(
+                                      '보증금 :',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      '${message.productData!['deposit'] ?? '0'} 원',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // 대여 기간 표시 (있는 경우에만)
+                    if (message.productData!['startDate'] != null &&
+                        message.productData!['endDate'] != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Text(
+                                  '대여 기간',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${message.productData!['startDate']} ~ ${message.productData!['endDate']}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // 하단 텍스트 (누가 수정했는지)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(12),
+                          bottomRight: Radius.circular(12),
+                        ),
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade200),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            message.text,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // 메시지 상태 표시
+                          if (message.status != null)
+                            _buildMessageStatusIcon(message.status!),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // 검색어가 포함된 텍스트를 강조 표시로 변환
     Widget messageText;
 
@@ -2356,25 +2744,62 @@ class _ChatScreenState extends State<ChatScreen>
 
     print('DEBUG: 메시지 전송 - 발신자: $_callerName');
 
-    // 1. 메시지를 먼저 UI에 추가
+    // 메시지 ID 생성
+    final String messageId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // UI에 메시지 추가 (전송 중 상태)
     final newMessage = ChatMessage(
       text: messageText,
       isMe: true,
       timestamp: DateTime.now(),
-      senderName: _callerName, // 발신자 이름 추가
+      senderName: _callerName,
+      status: 'sending', // 전송 중 상태
     );
 
-    setState(() {
+    _safeSetState(() {
       _messages.add(newMessage);
       _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     });
 
-    // 2. UI 업데이트를 위해 즉시 스크롤 아래로 이동
+    // 스크롤 아래로 이동
     _scrollToBottom();
 
-    // 3. 그 다음에 서버로 메시지 전송
-    _signalRService.sendMessage(widget.chatRoomId, messageText).catchError((e) {
+    // 서버로 메시지 전송
+    _signalRService.sendMessage(widget.chatRoomId, messageText).then((_) {
+      // 전송 성공 처리
+      _safeSetState(() {
+        final index = _messages.indexWhere((msg) =>
+            msg.text == messageText && msg.timestamp == newMessage.timestamp);
+
+        if (index != -1) {
+          _messages[index] = ChatMessage(
+            text: messageText,
+            isMe: true,
+            timestamp: newMessage.timestamp,
+            senderName: _callerName,
+            status: 'sent', // 성공적으로 전송됨
+          );
+        }
+      });
+    }).catchError((e) {
       print('메시지 전송 오류: $e');
+
+      // 전송 실패 처리
+      _safeSetState(() {
+        final index = _messages.indexWhere((msg) =>
+            msg.text == messageText && msg.timestamp == newMessage.timestamp);
+
+        if (index != -1) {
+          _messages[index] = ChatMessage(
+            text: messageText,
+            isMe: true,
+            timestamp: newMessage.timestamp,
+            senderName: _callerName,
+            status: 'error', // 전송 실패
+          );
+        }
+      });
+
       _showNotification('메시지 전송에 실패했습니다.');
     });
 
@@ -2384,24 +2809,51 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  // 메시지 상태 아이콘 생성 함수
+  Widget _buildMessageStatusIcon(String status) {
+    switch (status) {
+      case 'sending':
+        return SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        );
+      case 'sent':
+        return const Icon(Icons.check, size: 12, color: Colors.white);
+      case 'error':
+        return const Icon(Icons.error_outline, size: 12, color: Colors.red);
+      default:
+        return const SizedBox();
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
+
     // 타이머 정리
     _hideTimer?.cancel();
-    
+    _searchDebounceTimer?.cancel();
+
     // SignalR 관련 자원 해제
     _messageSubscription?.cancel();
     _signalRService.registerTradeOfferUpdateHandler(null);
-    
+
+    // 스크롤 리스너 제거
+    _scrollController.removeListener(_scrollListener);
+
     // 컨트롤러 정리
     _fadeAnimController?.dispose();
     _searchController.dispose();
     _textController.dispose();
     _scrollController.dispose();
-    
+
     // 오버레이 관련 변수 정리 (제거 로직은 deactivate에 있음)
     _cachedOverlay = null; // 캐시된 오버레이 참조만 정리
-    
+
     super.dispose();
   }
 }
@@ -2414,3 +2866,4 @@ String formatTime(DateTime time) {
   final period = isAfternoon ? '오후' : '오전'; // 오전/오후 표시
   return '$period $hour:$minute'; // 예: 오후 3:05
 }
+

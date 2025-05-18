@@ -259,6 +259,27 @@ class SignalRService {
     }
   }
 
+  Future<void> sendProductUpdateMessage(int roomId, String message) async {
+    if (_hubConnection == null ||
+        _hubConnection!.state != HubConnectionState.Connected) {
+      print('DEBUG: SignalR 연결이 없거나 연결 상태가 아닙니다.');
+      throw Exception('Hub connection is not in the Connected state.');
+    }
+
+    try {
+      // 일반 sendMessage와 동일한 형식으로 호출
+      await _hubConnection!.invoke('SendMessage', args: [
+        roomId,  // 문자열이 아닌 정수형으로 전달
+        message,
+        0  // 메시지 타입도 일반 메시지와 같이 숫자로 전달
+      ]);
+      print('상품 정보 메시지 전송 성공');
+    } catch (e) {
+      print('상품 정보 메시지 전송 오류: $e');
+      throw Exception('Error sending product update message: $e');
+    }
+  }
+
   // 저장된 메시지 로드
   Future<List<ChatMessage>> loadMessages(int roomId) async {
     try {
