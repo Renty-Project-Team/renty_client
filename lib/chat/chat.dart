@@ -154,6 +154,11 @@ class _ChatScreenState extends State<ChatScreen>
   Timer? _hideTimer;
   bool _showScrollButton = false; // 스크롤 버튼 표시 여부
 
+  // 위젯 참조 저장용 변수들
+  late ScaffoldMessengerState _scaffoldMessenger;
+  late MediaQueryData _mediaQuery;
+  late ThemeData _theme;
+
   @override
   void initState() {
     super.initState();
@@ -182,7 +187,7 @@ class _ChatScreenState extends State<ChatScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _init();
     });
-    
+
     // 스크롤 리스너 추가
     _scrollController.addListener(_scrollListener);
   }
@@ -190,7 +195,10 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
     _cachedOverlay = Overlay.of(context);
+    _mediaQuery = MediaQuery.of(context);
+    _theme = Theme.of(context);
   }
 
   @override
@@ -1580,12 +1588,7 @@ class _ChatScreenState extends State<ChatScreen>
                     ),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5F6FA),
-                        image: DecorationImage(
-                          image: const AssetImage('assets/chat_pattern.png'),
-                          repeat: ImageRepeat.repeat,
-                          opacity: 0.05,
-                        ),
+                        color: Colors.grey[50], // 대신 연한 회색 배경 사용
                       ),
                       child: ListView.builder(
                         controller: _scrollController,
@@ -1686,7 +1689,9 @@ class _ChatScreenState extends State<ChatScreen>
                                       width: 50,
                                       height: 50,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF3154FF).withOpacity(0.1),
+                                        color: const Color(
+                                          0xFF3154FF,
+                                        ).withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
@@ -1761,7 +1766,9 @@ class _ChatScreenState extends State<ChatScreen>
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF3154FF).withOpacity(0.3),
+                                    color: const Color(
+                                      0xFF3154FF,
+                                    ).withOpacity(0.3),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1825,11 +1832,7 @@ class _ChatScreenState extends State<ChatScreen>
                 ),
               ),
             // 스크롤 버튼 추가
-            Positioned(
-              right: 0,
-              bottom: 80,
-              child: _buildScrollButton(),
-            ),
+            Positioned(right: 0, bottom: 80, child: _buildScrollButton()),
           ],
         ),
       ),
@@ -2152,7 +2155,9 @@ class _ChatScreenState extends State<ChatScreen>
         fontSize: 15,
       );
 
-      if (isCurrentSearchResult && matchPosition != null && matchLength != null) {
+      if (isCurrentSearchResult &&
+          matchPosition != null &&
+          matchLength != null) {
         messageText = _buildSelectionHighlightedText(
           message.text,
           _lastSearchQuery,
@@ -2180,43 +2185,76 @@ class _ChatScreenState extends State<ChatScreen>
       );
     }
 
+    // Request 타입 메시지인 경우 특별한 스타일 적용
+    final bool isRequestMessage = message.senderName == "" && message.text.contains("상품 정보가 수정되었습니다");
+
     final messageContainer = Container(
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.7,
+        maxWidth: _mediaQuery.size.width * 0.7,
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: 16,
         vertical: 12,
       ),
       decoration: BoxDecoration(
-        color: message.isMe 
-          ? const Color(0xFF3154FF) 
-          : Colors.white,
+        color: isRequestMessage 
+          ? const Color(0xFFF5F6FA)
+          : (message.isMe ? const Color(0xFF3154FF) : Colors.white),
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(20),
           topRight: const Radius.circular(20),
           bottomLeft: Radius.circular(message.isMe ? 20 : 4),
           bottomRight: Radius.circular(message.isMe ? 4 : 20),
         ),
-        border: message.isMe
-            ? (isCurrentSearchResult
-                ? Border.all(color: Colors.orange, width: 2)
-                : null)
-            : Border.all(
-                color: isCurrentSearchResult
-                    ? Colors.orange
-                    : const Color(0xFFE8E8E8),
-                width: isCurrentSearchResult ? 2 : 1,
-              ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+        border: isRequestMessage
+            ? Border.all(color: const Color(0xFFE8E8E8), width: 1)
+            : (message.isMe
+                ? (isCurrentSearchResult
+                    ? Border.all(color: Colors.orange, width: 2)
+                    : null)
+                : Border.all(
+                    color: isCurrentSearchResult
+                        ? Colors.orange
+                        : const Color(0xFFE8E8E8),
+                    width: isCurrentSearchResult ? 2 : 1,
+                  )),
+        boxShadow: isRequestMessage
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isRequestMessage) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '상품 정보 수정',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          messageText,
         ],
       ),
-      child: messageText,
     );
 
     return Padding(
@@ -2227,7 +2265,7 @@ class _ChatScreenState extends State<ChatScreen>
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!message.isMe) ...[
-            if (showProfile)
+            if (showProfile && !isRequestMessage)
               Container(
                 margin: const EdgeInsets.only(right: 12),
                 child: Stack(
@@ -2286,7 +2324,7 @@ class _ChatScreenState extends State<ChatScreen>
                   ],
                 ),
               )
-            else
+            else if (!isRequestMessage)
               const SizedBox(width: 52),
           ],
 
@@ -2455,6 +2493,7 @@ class _ChatScreenState extends State<ChatScreen>
   void dispose() {
     // 타이머 정리
     _hideTimer?.cancel();
+    _searchDebounceTimer?.cancel();
 
     // SignalR 관련 자원 해제
     _messageSubscription?.cancel();
@@ -2467,6 +2506,16 @@ class _ChatScreenState extends State<ChatScreen>
     _scrollController.dispose();
     _scrollController.removeListener(_scrollListener);
 
+    // 오버레이 정리
+    if (_overlayEntry != null) {
+      try {
+        _overlayEntry!.remove();
+        _overlayEntry = null;
+      } catch (e) {
+        print('dispose 중 오버레이 제거 실패: $e');
+      }
+    }
+
     super.dispose();
   }
 
@@ -2476,7 +2525,7 @@ class _ChatScreenState extends State<ChatScreen>
       final maxScroll = _scrollController.position.maxScrollExtent;
       final currentScroll = _scrollController.offset;
       final delta = MediaQuery.of(context).size.height * 0.2;
-      
+
       setState(() {
         _showScrollButton = (maxScroll - currentScroll) > delta;
       });
