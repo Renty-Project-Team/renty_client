@@ -66,8 +66,8 @@ class _IncomePageState extends State<IncomePage>
   // 부드러운 카운터 애니메이션 구현
   void _updateIncomeValue() {
     setState(() {
-      // 애니메이션 진행도에 따라 부드럽게 증가
-      _currentDisplayedIncome = (_income * _animation.value).round();
+      // 명시적 타입 변환 추가
+      _currentDisplayedIncome = (_income * _animation.value).round().toInt();
     });
   }
 
@@ -75,18 +75,27 @@ class _IncomePageState extends State<IncomePage>
   Future<void> _loadIncomeData() async {
     try {
       final ApiClient apiClient = ApiClient();
-      final response = await apiClient.client.get('/My/profile'); // API 경로 수정
+      final response = await apiClient.client.get('/My/profile');
 
       if (response.statusCode == 200) {
         final data = response.data;
         setState(() {
-          _income = data['totalIncome'] ?? 0;
+          // 타입 변환 적용 - 값이 double인 경우를 처리
+          if (data['totalIncome'] != null) {
+            // dynamic 타입을 안전하게 int로 변환
+            _income =
+                (data['totalIncome'] is int)
+                    ? data['totalIncome']
+                    : (data['totalIncome'] as num).toInt();
+          } else {
+            _income = 0;
+          }
           _userName = data['userName'] ?? '';
           _isLoading = false;
         });
 
         // 데이터 로드 후 약간의 지연 후 애니메이션 시작
-        Future.delayed(Duration(milliseconds: 400), () {
+        Future.delayed(Duration(milliseconds: 100), () {
           _animationController.forward();
         });
       } else {

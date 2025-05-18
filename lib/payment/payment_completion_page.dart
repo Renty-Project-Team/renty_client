@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../chat/chat_list.dart';
-import '../myPage/rental_list_page.dart';
 import '../chat/chat.dart';
 
 class PaymentCompletionPage extends StatelessWidget {
@@ -123,15 +122,15 @@ class PaymentCompletionPage extends StatelessWidget {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: () {
-                      // 마이페이지의 대여중인 제품 화면으로 이동
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) =>
-                                  const RentalListPage(showActiveOnly: true),
-                        ),
-                      );
+                      // 마이페이지의 대여중인 제품 화면으로 이동 (메인 Merge시 연결)
+                      // Navigator.push(
+                      //   context,
+                      //   MaterialPageRoute(
+                      //     builder:
+                      //         (context) =>
+                      //             const RentalListPage(showActiveOnly: true),
+                      //   ),
+                      // );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3154FF),
@@ -160,10 +159,7 @@ class PaymentCompletionPage extends StatelessWidget {
                       // 모든 이전 화면을 제거하고 채팅방으로 이동
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ChatListPage()
-                        ),
+                        MaterialPageRoute(builder: (context) => ChatListPage()),
                         (route) => route.isFirst, // 홈 화면만 남기고 모든 화면 제거
                       );
                     },
