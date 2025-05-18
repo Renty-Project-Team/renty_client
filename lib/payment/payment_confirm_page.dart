@@ -152,9 +152,19 @@ class PaymentConfirmPage extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildPaymentInfoRow(
-                            '대여 기간',
-                            '${dateFormat.format(startDate)} ~ ${dateFormat.format(endDate)}',
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildPaymentInfoRow(
+                                '대여 시작일',
+                                dateFormat.format(startDate),
+                              ),
+                              const SizedBox(height: 8),
+                              _buildPaymentInfoRow(
+                                '대여 종료일',
+                                dateFormat.format(endDate),
+                              ),
+                            ],
                           ),
                           const Divider(height: 24),
                           _buildPaymentInfoRow(

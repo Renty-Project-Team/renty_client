@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../chat/chat_list.dart';
-import '../myPage/rental_list_page.dart';
 import '../chat/chat.dart';
 
-class PaymentCompletionPage extends StatelessWidget {
+class PaymentFailurePage extends StatelessWidget {
   final Product product;
   final int itemId;
   final String buyerName;
@@ -13,8 +12,9 @@ class PaymentCompletionPage extends StatelessWidget {
   final DateTime endDate;
   final int totalPrice;
   final int deposit;
+  final String errorMessage;
 
-  const PaymentCompletionPage({
+  const PaymentFailurePage({
     Key? key,
     required this.product,
     required this.itemId,
@@ -24,6 +24,7 @@ class PaymentCompletionPage extends StatelessWidget {
     required this.endDate,
     required this.totalPrice,
     required this.deposit,
+    required this.errorMessage,
   }) : super(key: key);
 
   @override
@@ -34,7 +35,7 @@ class PaymentCompletionPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('결제 완료'),
+        title: const Text('결제 실패'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -43,25 +44,40 @@ class PaymentCompletionPage extends StatelessWidget {
         children: [
           const SizedBox(height: 40),
 
-          // 성공 아이콘
+          // 실패 아이콘
           Container(
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: const Color(0xFFEEFBF1),
+              color: const Color(0xFFFFEBEB),  // 연한 빨간색 배경
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(Icons.check, size: 60, color: Color(0xFF4CD964)),
+            child: const Icon(Icons.close, size: 60, color: Color(0xFFFF3B30)),  // 빨간 X 아이콘
           ),
 
           const SizedBox(height: 24),
 
           const Text(
-            '결제가 완료되었습니다',
+            '결제에 실패했습니다',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
 
-          const SizedBox(height: 40),
+          const SizedBox(height: 16),
+
+          // 오류 메시지 표시
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              errorMessage,
+              style: const TextStyle(
+                fontSize: 16, 
+                color: Color(0xFFFF3B30),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+
+          const SizedBox(height: 32),
 
           // 결제 정보
           Padding(
@@ -78,7 +94,7 @@ class PaymentCompletionPage extends StatelessWidget {
                   _buildInfoRow('상품명', product.title),
                   const SizedBox(height: 12),
 
-                  // 시작일과 종료일을 _buildInfoRow 메서드를 사용하여 표시
+                  // 시작일과 종료일 표시
                   _buildInfoRow(
                     '대여 시작일',
                     DateFormat('yyyy년 MM월 dd일').format(startDate),
@@ -123,14 +139,13 @@ class PaymentCompletionPage extends StatelessWidget {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: () {
-                      // 마이페이지의 대여중인 제품 화면으로 이동
-                      Navigator.push(
+                      // 채팅방으로 돌아가기
+                      Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
-                          builder:
-                              (context) =>
-                                  const RentalListPage(showActiveOnly: true),
+                          builder: (context) => ChatListPage(),
                         ),
+                        (route) => route.isFirst, // 홈 화면만 남기고 모든 화면 제거
                       );
                     },
                     style: ElevatedButton.styleFrom(
@@ -141,7 +156,7 @@ class PaymentCompletionPage extends StatelessWidget {
                       elevation: 0,
                     ),
                     child: const Text(
-                      '대여중인 제품 보기',
+                      '채팅 목록으로 돌아가기',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -151,38 +166,6 @@ class PaymentCompletionPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: TextButton(
-                    onPressed: () {
-                      // 채팅방 화면으로 바로 돌아가기
-                      // 모든 이전 화면을 제거하고 채팅방으로 이동
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ChatListPage()
-                        ),
-                        (route) => route.isFirst, // 홈 화면만 남기고 모든 화면 제거
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      foregroundColor: Colors.black,
-                    ),
-                    child: const Text(
-                      '채팅 목록으로 돌아가기',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -205,15 +188,12 @@ class PaymentCompletionPage extends StatelessWidget {
           style: titleStyle ?? TextStyle(fontSize: 16, color: Colors.grey),
         ),
         Flexible(
-          // Flexible 위젯 추가
           child: Text(
             value,
-            style:
-                valueStyle ??
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.right, // 오른쪽 정렬 추가
-            overflow: TextOverflow.ellipsis, // 말줄임표 처리 추가
-            maxLines: 1, // 최대 1줄로 제한
+            style: valueStyle ?? const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
       ],

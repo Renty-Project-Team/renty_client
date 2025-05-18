@@ -468,43 +468,62 @@ class _ProfileEditPageState extends State<ProfileEditPage>
                     const SizedBox(height: 16),
 
                     // 이미지 관리 버튼 영역
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // 이미지 변경 버튼
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: const Text(
-                            '이미지 변경',
-                            style: TextStyle(
-                              color: Color(0xFF3154FF),
-                              fontWeight: FontWeight.w500,
-                              decoration: TextDecoration.underline,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 이미지 변경 버튼
+                          ElevatedButton.icon(
+                            onPressed: _pickImage,
+                            icon: const Icon(
+                              Icons.photo_library_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('이미지 변경'),
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: const Color(0xFF3154FF),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                             ),
                           ),
-                        ),
 
-                        // 프로필 이미지가 있을 때만 삭제 버튼 표시
-                        if (!_isProfileImageDeleted &&
-                            (_originalImageUrl != null ||
-                                _selectedImage != null))
-                          Row(
-                            children: [
-                              const Text(' | '),
-                              GestureDetector(
-                                onTap: _deleteProfileImage,
-                                child: Text(
-                                  '이미지 삭제',
-                                  style: TextStyle(
-                                    color: Colors.red[700],
-                                    fontWeight: FontWeight.w500,
-                                    decoration: TextDecoration.underline,
+                          // 프로필 이미지가 있을 때만 삭제 버튼 표시
+                          if (!_isProfileImageDeleted &&
+                              (_originalImageUrl != null ||
+                                  _selectedImage != null))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12.0),
+                              child: OutlinedButton.icon(
+                                onPressed: _deleteProfileImage,
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                ),
+                                label: const Text('이미지 삭제'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red[700],
+                                  side: BorderSide(color: Colors.red[700]!),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                      ],
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

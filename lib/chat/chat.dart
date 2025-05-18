@@ -152,6 +152,7 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isOverlayVisible = false;
   String _notificationMessage = '';
   Timer? _hideTimer;
+  bool _showScrollButton = false; // 스크롤 버튼 표시 여부
 
   @override
   void initState() {
@@ -181,6 +182,9 @@ class _ChatScreenState extends State<ChatScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _init();
     });
+    
+    // 스크롤 리스너 추가
+    _scrollController.addListener(_scrollListener);
   }
 
   @override
@@ -1558,13 +1562,12 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: const Color(0xFFF5F6FA),
       child: Scaffold(
         appBar: _buildAppBar(),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF5F6FA),
         body: Stack(
           children: [
-            // 기존 화면 내용
             Column(
               children: [
                 _buildProductInfo(),
@@ -1576,7 +1579,14 @@ class _ChatScreenState extends State<ChatScreen>
                       ),
                     ),
                     child: Container(
-                      color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F6FA),
+                        image: DecorationImage(
+                          image: const AssetImage('assets/chat_pattern.png'),
+                          repeat: ImageRepeat.repeat,
+                          opacity: 0.05,
+                        ),
+                      ),
                       child: ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16.0),
@@ -1676,12 +1686,12 @@ class _ChatScreenState extends State<ChatScreen>
                                       width: 50,
                                       height: 50,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        borderRadius: BorderRadius.circular(8),
+                                        color: const Color(0xFF3154FF).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
                                         Icons.image,
-                                        color: Colors.grey[400],
+                                        color: const Color(0xFF3154FF),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -1700,7 +1710,7 @@ class _ChatScreenState extends State<ChatScreen>
                         ),
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0,
+                          horizontal: 12.0,
                           vertical: 8.0,
                         ),
                         child: Row(
@@ -1708,7 +1718,7 @@ class _ChatScreenState extends State<ChatScreen>
                             IconButton(
                               icon: Icon(
                                 _isAttachmentOpen ? Icons.close : Icons.add,
-                                color: Colors.grey[600],
+                                color: const Color(0xFF3154FF),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -1719,8 +1729,12 @@ class _ChatScreenState extends State<ChatScreen>
                             Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[100],
+                                  color: const Color(0xFFF5F6FA),
                                   borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: const Color(0xFFE8E8E8),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: TextField(
                                   controller: _textController,
@@ -1745,6 +1759,13 @@ class _ChatScreenState extends State<ChatScreen>
                               decoration: BoxDecoration(
                                 color: const Color(0xFF3154FF),
                                 borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF3154FF).withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: IconButton(
                                 icon: const Icon(
@@ -1803,6 +1824,12 @@ class _ChatScreenState extends State<ChatScreen>
                   ),
                 ),
               ),
+            // 스크롤 버튼 추가
+            Positioned(
+              right: 0,
+              bottom: 80,
+              child: _buildScrollButton(),
+            ),
           ],
         ),
       ),
@@ -2102,37 +2129,30 @@ class _ChatScreenState extends State<ChatScreen>
     int? matchLength,
     bool showProfile = true,
   }) {
-    final timestamp = formatTime(message.timestamp); // 시간 포맷팅
+    final timestamp = formatTime(message.timestamp);
 
-    // 검색어가 포함된 텍스트를 강조 표시로 변환
     Widget messageText;
 
     if (_isSearchMode && _lastSearchQuery.isNotEmpty) {
-      // 1. 기본 스타일 정의
       final baseStyle = TextStyle(
         color: message.isMe ? Colors.white : Colors.black,
+        fontSize: 15,
       );
 
-      // 2. 일반 검색어 강조 스타일
       final highlightStyle = TextStyle(
         color: message.isMe ? Colors.white : Colors.black,
-        backgroundColor: Colors.yellow.withOpacity(0.4), // 검색어는 노란색 배경으로 강조
+        backgroundColor: Colors.yellow.withOpacity(0.4),
+        fontSize: 15,
       );
 
-      // 3. 현재 선택된 검색어 강조 스타일 (더 강한 강조)
       final currentHighlightStyle = TextStyle(
         color: message.isMe ? Colors.black : Colors.white,
-        backgroundColor: Colors.orange.withOpacity(
-          0.8,
-        ), // 현재 선택된 검색어는 주황색 배경으로 강조
+        backgroundColor: Colors.orange.withOpacity(0.8),
         fontWeight: FontWeight.bold,
+        fontSize: 15,
       );
 
-      // 텍스트를 RichText로 변환하여 선택된 검색어와 일반 검색어 다르게 강조
-      if (isCurrentSearchResult &&
-          matchPosition != null &&
-          matchLength != null) {
-        // 현재 선택된 메시지는 특정 위치의 단어를 강하게 강조
+      if (isCurrentSearchResult && matchPosition != null && matchLength != null) {
         messageText = _buildSelectionHighlightedText(
           message.text,
           _lastSearchQuery,
@@ -2143,7 +2163,6 @@ class _ChatScreenState extends State<ChatScreen>
           currentHighlightStyle: currentHighlightStyle,
         );
       } else {
-        // 일반 검색 결과는 모든 검색어를 일반적으로 강조
         messageText = _buildHighlightedText(
           message.text,
           _lastSearchQuery,
@@ -2152,112 +2171,151 @@ class _ChatScreenState extends State<ChatScreen>
         );
       }
     } else {
-      // 일반 텍스트
       messageText = Text(
         message.text,
-        style: TextStyle(color: message.isMe ? Colors.white : Colors.black),
+        style: TextStyle(
+          color: message.isMe ? Colors.white : Colors.black,
+          fontSize: 15,
+        ),
       );
     }
 
-    // 현재 선택된 검색 결과인 경우 메시지 컨테이너에 특별한 테두리 추가
     final messageContainer = Container(
-      // 메시지 최대 너비 제한 (화면 너비의 70%)
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.7,
       ),
       padding: const EdgeInsets.symmetric(
-        horizontal: 15,
-        vertical: 10,
-      ), // 내부 패딩
+        horizontal: 16,
+        vertical: 12,
+      ),
       decoration: BoxDecoration(
-        // 내 메시지는 #3154FF, 상대방 메시지는 흰색 배경
-        color: message.isMe ? const Color(0xFF3154FF) : Colors.white,
-        borderRadius: BorderRadius.circular(20), // 둥근 모서리
-        // 상대방 메시지는 #D9D9D9 색상의 테두리 표시
-        border:
-            message.isMe
-                ? (isCurrentSearchResult
-                    ? Border.all(color: Colors.orange, width: 2) // 현재 선택된 내 메시지
-                    : null)
-                : Border.all(
-                  color:
-                      isCurrentSearchResult
-                          ? Colors
-                              .orange // 현재 선택된 상대방 메시지
-                          : const Color(0xFFD9D9D9),
-                  width: isCurrentSearchResult ? 2 : 1,
-                ),
-        // 현재 선택된 메시지는 그림자 효과 추가
-        boxShadow:
-            isCurrentSearchResult
-                ? [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-                : null,
+        color: message.isMe 
+          ? const Color(0xFF3154FF) 
+          : Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(20),
+          topRight: const Radius.circular(20),
+          bottomLeft: Radius.circular(message.isMe ? 20 : 4),
+          bottomRight: Radius.circular(message.isMe ? 4 : 20),
+        ),
+        border: message.isMe
+            ? (isCurrentSearchResult
+                ? Border.all(color: Colors.orange, width: 2)
+                : null)
+            : Border.all(
+                color: isCurrentSearchResult
+                    ? Colors.orange
+                    : const Color(0xFFE8E8E8),
+                width: isCurrentSearchResult ? 2 : 1,
+              ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: messageText,
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.0), // 메시지 간 간격
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        // 메시지 정렬 방향 (내 메시지는 오른쪽, 상대방 메시지는 왼쪽)
         mainAxisAlignment:
             message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end, // 하단 정렬
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // 상대방 메시지인 경우 프로필 아바타 또는 빈 공간
           if (!message.isMe) ...[
             if (showProfile)
-              CircleAvatar(
-                backgroundColor: Colors.grey[300],
-                radius: 15, // 작은 크기로 설정
-                child: Text(
-                  widget.roomName.isNotEmpty
-                      ? widget.roomName[0]
-                      : "?", // 상대방 이니셜
-                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
+              Container(
+                margin: const EdgeInsets.only(right: 12),
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.grey[200]!,
+                            Colors.grey[100]!,
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          widget.roomName.isNotEmpty ? widget.roomName[0] : "?",
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.profileImageUrl != null)
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: NetworkImage(widget.profileImageUrl!),
+                            fit: BoxFit.cover,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               )
             else
-              SizedBox(width: 30), // CircleAvatar의 너비(30) + 간격(8)과 동일한 공간
-            const SizedBox(width: 8), // 아바타와 메시지 사이 간격
+              const SizedBox(width: 52),
           ],
 
-          // 내 메시지의 경우 왼쪽에 시간 표시
           if (message.isMe && showTimestamp)
             Padding(
-              padding: const EdgeInsets.only(right: 4.0),
+              padding: const EdgeInsets.only(right: 6.0),
               child: Text(
                 timestamp,
                 style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 10, // 작은 글씨
+                  color: Colors.grey[500],
+                  fontSize: 11,
                 ),
               ),
             ),
 
-          // 메시지 내용 컨테이너
           messageContainer,
 
-          // 상대방 메시지의 경우 오른쪽에 시간 표시
           if (!message.isMe && showTimestamp)
             Padding(
-              padding: const EdgeInsets.only(left: 4.0),
+              padding: const EdgeInsets.only(left: 6.0),
               child: Text(
                 timestamp,
                 style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 10, // 작은 글씨
+                  color: Colors.grey[500],
+                  fontSize: 11,
                 ),
               ),
             ),
 
-          // 내 메시지인 경우 오른쪽 여백 추가
           if (message.isMe) const SizedBox(width: 8),
         ],
       ),
@@ -2407,8 +2465,47 @@ class _ChatScreenState extends State<ChatScreen>
     _searchController.dispose();
     _textController.dispose();
     _scrollController.dispose();
+    _scrollController.removeListener(_scrollListener);
 
     super.dispose();
+  }
+
+  // 스크롤 리스너 함수
+  void _scrollListener() {
+    if (_scrollController.hasClients) {
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.offset;
+      final delta = MediaQuery.of(context).size.height * 0.2;
+      
+      setState(() {
+        _showScrollButton = (maxScroll - currentScroll) > delta;
+      });
+    }
+  }
+
+  // 스크롤 버튼 위젯
+  Widget _buildScrollButton() {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: _showScrollButton ? 1.0 : 0.0,
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          shape: BoxShape.circle,
+        ),
+        child: IconButton(
+          icon: const Icon(
+            Icons.keyboard_arrow_down,
+            color: Colors.white,
+            size: 24,
+          ),
+          onPressed: () {
+            _scrollToBottom();
+          },
+        ),
+      ),
+    );
   }
 }
 
