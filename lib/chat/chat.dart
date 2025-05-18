@@ -381,12 +381,14 @@ class _ChatScreenState extends State<ChatScreen>
             'price': _formatPrice(_product.price),
             'priceUnit': _convertPriceUnitToKorean(_product.priceUnit),
             'deposit': _formatPrice(_product.deposit),
-            'startDate': startDate != null
-                ? DateFormat('yyyy-MM-dd').format(startDate)
-                : null,
-            'endDate': endDate != null
-                ? DateFormat('yyyy-MM-dd').format(endDate)
-                : null,
+            'startDate':
+                startDate != null
+                    ? DateFormat('yyyy-MM-dd').format(startDate)
+                    : null,
+            'endDate':
+                endDate != null
+                    ? DateFormat('yyyy-MM-dd').format(endDate)
+                    : null,
             'imageUrl': fullImageUrl,
           },
           status: 'sent',
@@ -529,11 +531,65 @@ class _ChatScreenState extends State<ChatScreen>
                   'DEBUG: 메시지 로드 - 발신자: $senderName, 현재 사용자: $_callerName, 내 메시지 여부: $isSenderMe',
                 );
 
+                // 메시지 내용 확인
+                String content = msg['content'] ?? '';
+                String messageType = 'text';
+                Map<String, dynamic>? productData;
+
+                // JSON 형식인지 확인
+                if (content.startsWith('{') && content.endsWith('}')) {
+                  try {
+                    final jsonData = jsonDecode(content);
+
+                    // 상품 정보 메시지인지 확인 (Type: Request 형식)
+                    if (jsonData['Type'] == 'Request' &&
+                        jsonData['Data'] != null) {
+                      messageType = 'product_update';
+
+                      // 상품 정보 추출
+                      productData = {
+                        'title': jsonData['Data']['ProductName'] ?? '',
+                        'price':
+                            jsonData['Data']['RentalPrice']
+                                ?.toString()
+                                .replaceAll('일 ', '')
+                                .replaceAll('원', '') ??
+                            '0',
+                        'deposit':
+                            jsonData['Data']['Deposit']?.toString().replaceAll(
+                              '원',
+                              '',
+                            ) ??
+                            '0',
+                        'startDate': jsonData['Data']['StartDate'],
+                        'endDate': jsonData['Data']['EndDate'],
+                        'messageId':
+                            DateTime.now().millisecondsSinceEpoch.toString(),
+                        'imageUrl': _product.imageUrl, // 현재 로드된 상품의 이미지 URL 사용
+                      };
+
+                      // 메시지 텍스트 변경
+                      content =
+                          isSenderMe ? "상품 정보를 수정했습니다" : "판매자가 상품 정보를 수정했습니다";
+
+                      print(
+                        'DEBUG: JSON 메시지를 UI 카드로 변환 - ${productData['title']}',
+                      );
+                    }
+                  } catch (e) {
+                    print('JSON 메시지 파싱 실패: $e');
+                  }
+                }
+
+                // 메시지 객체 생성 - 변환된 타입과 데이터로
                 return ChatMessage(
-                  text: msg['content'] ?? '',
+                  text: content,
                   isMe: isSenderMe,
                   timestamp: DateTime.parse(msg['sendAt']),
-                  senderName: senderName, // 발신자 이름 추가
+                  senderName: senderName,
+                  messageType: messageType,
+                  productData: productData,
+                  status: 'sent',
                 );
               }).toList();
 
@@ -1475,16 +1531,26 @@ class _ChatScreenState extends State<ChatScreen>
                                         }
 
                                         // 메시지 상태 관리를 위한 고유 ID 생성
-                                        final String messageId = DateTime.now().millisecondsSinceEpoch.toString();
+                                        final String messageId =
+                                            DateTime.now()
+                                                .millisecondsSinceEpoch
+                                                .toString();
 
                                         // 상품 정보 데이터 준비
                                         final productData = {
                                           'title': title,
                                           'price': _formatPrice(price),
-                                          'priceUnit': _convertPriceUnitToKorean(serverPriceUnit),
+                                          'priceUnit':
+                                              _convertPriceUnitToKorean(
+                                                serverPriceUnit,
+                                              ),
                                           'deposit': _formatPrice(deposit),
-                                          'startDate': DateFormat('yyyy-MM-dd').format(startDate),
-                                          'endDate': DateFormat('yyyy-MM-dd').format(endDate),
+                                          'startDate': DateFormat(
+                                            'yyyy-MM-dd',
+                                          ).format(startDate),
+                                          'endDate': DateFormat(
+                                            'yyyy-MM-dd',
+                                          ).format(endDate),
                                           'imageUrl': _product.imageUrl,
                                           'messageId': messageId,
                                         };
@@ -1509,19 +1575,26 @@ class _ChatScreenState extends State<ChatScreen>
 
                                         // 상품 데이터 JSON 생성
                                         final requestData = {
-                                          'Type': 'Request', 
+                                          'Type': 'Request',
                                           'Sender': _callerName,
                                           'Data': {
                                             'ProductName': title,
-                                            'RentalPrice': "${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(price)}원",
-                                            'Deposit': "${_formatPrice(deposit)}원",
-                                            'StartDate': DateFormat('yyyy-MM-dd').format(startDate),
-                                            'EndDate': DateFormat('yyyy-MM-dd').format(endDate)
-                                          }
+                                            'RentalPrice':
+                                                "${_convertPriceUnitToKorean(serverPriceUnit)} ${_formatPrice(price)}원",
+                                            'Deposit':
+                                                "${_formatPrice(deposit)}원",
+                                            'StartDate': DateFormat(
+                                              'yyyy-MM-dd',
+                                            ).format(startDate),
+                                            'EndDate': DateFormat(
+                                              'yyyy-MM-dd',
+                                            ).format(endDate),
+                                          },
                                         };
 
                                         // TradeButtonService의 updateProductOffer 함수로 API 호출
-                                        final tradeButtonService = TradeButtonService();
+                                        final tradeButtonService =
+                                            TradeButtonService();
                                         tradeButtonService.updateProductOffer(
                                           itemId: _itemId,
                                           title: title,
@@ -1535,92 +1608,156 @@ class _ChatScreenState extends State<ChatScreen>
                                             if (!mounted || _isDisposed) return;
 
                                             // 콤마 제거하고 순수 숫자값만 저장
-                                            final cleanPrice = price.replaceAll(',', '');
-                                            final cleanDeposit = deposit.replaceAll(',', '');
+                                            final cleanPrice = price.replaceAll(
+                                              ',',
+                                              '',
+                                            );
+                                            final cleanDeposit = deposit
+                                                .replaceAll(',', '');
 
                                             // 서버로 메시지 전송 (Type: Request)
-                                            _signalRService.sendProductUpdateMessage(
-                                              widget.chatRoomId, 
-                                              jsonEncode(requestData)
-                                            ).then((_) {
-                                              // 성공적으로 전송된 경우 메시지 상태 업데이트
-                                              _safeSetState(() {
-                                                // 메시지 찾아서 상태 업데이트
-                                                final index = _messages.indexWhere((msg) => 
-                                                  msg.productData != null && 
-                                                  msg.productData!['messageId'] == messageId);
-                                                
-                                                if (index != -1) {
-                                                  _messages[index] = ChatMessage(
-                                                    text: _messages[index].text,
-                                                    isMe: _messages[index].isMe,
-                                                    timestamp: _messages[index].timestamp,
-                                                    senderName: _messages[index].senderName,
-                                                    messageType: _messages[index].messageType,
-                                                    productData: _messages[index].productData,
-                                                    status: 'sent',  // 성공적으로 전송됨
-                                                  );
-                                                }
+                                            _signalRService
+                                                .sendProductUpdateMessage(
+                                                  widget.chatRoomId,
+                                                  jsonEncode(requestData),
+                                                )
+                                                .then((_) {
+                                                  // 성공적으로 전송된 경우 메시지 상태 업데이트
+                                                  _safeSetState(() {
+                                                    // 메시지 찾아서 상태 업데이트
+                                                    final index = _messages
+                                                        .indexWhere(
+                                                          (msg) =>
+                                                              msg.productData !=
+                                                                  null &&
+                                                              msg.productData!['messageId'] ==
+                                                                  messageId,
+                                                        );
 
-                                                // 상품 정보도 업데이트
-                                                _product = Product(
-                                                  title: title,
-                                                  price: cleanPrice,
-                                                  priceUnit: serverPriceUnit,
-                                                  deposit: cleanDeposit,
-                                                  imageUrl: _product.imageUrl,
-                                                );
+                                                    if (index != -1) {
+                                                      _messages[index] = ChatMessage(
+                                                        text:
+                                                            _messages[index]
+                                                                .text,
+                                                        isMe:
+                                                            _messages[index]
+                                                                .isMe,
+                                                        timestamp:
+                                                            _messages[index]
+                                                                .timestamp,
+                                                        senderName:
+                                                            _messages[index]
+                                                                .senderName,
+                                                        messageType:
+                                                            _messages[index]
+                                                                .messageType,
+                                                        productData:
+                                                            _messages[index]
+                                                                .productData,
+                                                        status:
+                                                            'sent', // 성공적으로 전송됨
+                                                      );
+                                                    }
 
-                                                _productStartDate = startDate;
-                                                _productEndDate = endDate;
-                                              });
-                                            }).catchError((e) {
-                                              // 전송 실패 시 메시지 상태 업데이트
-                                              _safeSetState(() {
-                                                final index = _messages.indexWhere((msg) => 
-                                                  msg.productData != null && 
-                                                  msg.productData!['messageId'] == messageId);
-                                                
-                                                if (index != -1) {
-                                                  _messages[index] = ChatMessage(
-                                                    text: _messages[index].text,
-                                                    isMe: _messages[index].isMe,
-                                                    timestamp: _messages[index].timestamp,
-                                                    senderName: _messages[index].senderName,
-                                                    messageType: _messages[index].messageType,
-                                                    productData: _messages[index].productData,
-                                                    status: 'error',  // 전송 실패
+                                                    // 상품 정보도 업데이트
+                                                    _product = Product(
+                                                      title: title,
+                                                      price: cleanPrice,
+                                                      priceUnit:
+                                                          serverPriceUnit,
+                                                      deposit: cleanDeposit,
+                                                      imageUrl:
+                                                          _product.imageUrl,
+                                                    );
+
+                                                    _productStartDate =
+                                                        startDate;
+                                                    _productEndDate = endDate;
+                                                  });
+                                                })
+                                                .catchError((e) {
+                                                  // 전송 실패 시 메시지 상태 업데이트
+                                                  _safeSetState(() {
+                                                    final index = _messages
+                                                        .indexWhere(
+                                                          (msg) =>
+                                                              msg.productData !=
+                                                                  null &&
+                                                              msg.productData!['messageId'] ==
+                                                                  messageId,
+                                                        );
+
+                                                    if (index != -1) {
+                                                      _messages[index] =
+                                                          ChatMessage(
+                                                            text:
+                                                                _messages[index]
+                                                                    .text,
+                                                            isMe:
+                                                                _messages[index]
+                                                                    .isMe,
+                                                            timestamp:
+                                                                _messages[index]
+                                                                    .timestamp,
+                                                            senderName:
+                                                                _messages[index]
+                                                                    .senderName,
+                                                            messageType:
+                                                                _messages[index]
+                                                                    .messageType,
+                                                            productData:
+                                                                _messages[index]
+                                                                    .productData,
+                                                            status:
+                                                                'error', // 전송 실패
+                                                          );
+                                                    }
+                                                  });
+
+                                                  _showNotification(
+                                                    '메시지 전송에 실패했습니다.',
                                                   );
-                                                }
-                                              });
-                                              
-                                              _showNotification('메시지 전송에 실패했습니다.');
-                                            });
+                                                });
                                           },
                                           onError: (errorMessage) {
                                             if (!mounted || _isDisposed) return;
-                                            
+
                                             // API 호출 실패 시 메시지 상태 업데이트
                                             _safeSetState(() {
-                                              final index = _messages.indexWhere((msg) => 
-                                                msg.productData != null && 
-                                                msg.productData!['messageId'] == messageId);
-                                              
+                                              final index = _messages.indexWhere(
+                                                (msg) =>
+                                                    msg.productData != null &&
+                                                    msg.productData!['messageId'] ==
+                                                        messageId,
+                                              );
+
                                               if (index != -1) {
                                                 _messages[index] = ChatMessage(
                                                   text: _messages[index].text,
                                                   isMe: _messages[index].isMe,
-                                                  timestamp: _messages[index].timestamp,
-                                                  senderName: _messages[index].senderName,
-                                                  messageType: _messages[index].messageType,
-                                                  productData: _messages[index].productData,
-                                                  status: 'error',  // 전송 실패
+                                                  timestamp:
+                                                      _messages[index]
+                                                          .timestamp,
+                                                  senderName:
+                                                      _messages[index]
+                                                          .senderName,
+                                                  messageType:
+                                                      _messages[index]
+                                                          .messageType,
+                                                  productData:
+                                                      _messages[index]
+                                                          .productData,
+                                                  status: 'error', // 전송 실패
                                                 );
                                               }
                                             });
-                                            
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text(errorMessage)),
+
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(errorMessage),
+                                              ),
                                             );
                                           },
                                         );
@@ -2225,7 +2362,8 @@ class _ChatScreenState extends State<ChatScreen>
     final timestamp = formatTime(message.timestamp); // 시간 포맷팅
 
     // 상품 카드 메시지 타입인 경우
-    if (message.messageType == 'product_update' && message.productData != null) {
+    if (message.messageType == 'product_update' &&
+        message.productData != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12.0),
         child: Column(
@@ -2237,10 +2375,7 @@ class _ChatScreenState extends State<ChatScreen>
                 padding: const EdgeInsets.only(bottom: 6.0),
                 child: Text(
                   timestamp,
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
                 ),
               ),
 
@@ -2270,7 +2405,9 @@ class _ChatScreenState extends State<ChatScreen>
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: const BoxDecoration(
                         color: Color(0xFF3154FF),
                         borderRadius: BorderRadius.only(
@@ -2285,12 +2422,12 @@ class _ChatScreenState extends State<ChatScreen>
                             width: 24,
                             height: 24,
                             color: Colors.white,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
-                              Icons.card_giftcard,
-                              color: Colors.white,
-                              size: 24,
-                            ),
+                            errorBuilder:
+                                (context, error, stackTrace) => const Icon(
+                                  Icons.card_giftcard,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                           ),
                           const SizedBox(width: 8),
                           const Text(
@@ -2319,25 +2456,27 @@ class _ChatScreenState extends State<ChatScreen>
                               color: Colors.grey[200],
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: message.productData!['imageUrl'] != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      message.productData!['imageUrl']!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) => Icon(
-                                        Icons.image_not_supported,
-                                        color: Colors.grey[400],
-                                        size: 30,
+                            child:
+                                message.productData!['imageUrl'] != null
+                                    ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        message.productData!['imageUrl']!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Colors.grey[400],
+                                                  size: 30,
+                                                ),
                                       ),
+                                    )
+                                    : Icon(
+                                      Icons.image,
+                                      color: Colors.grey[400],
+                                      size: 30,
                                     ),
-                                  )
-                                : Icon(
-                                    Icons.image,
-                                    color: Colors.grey[400],
-                                    size: 30,
-                                  ),
                           ),
                           const SizedBox(width: 12),
 
@@ -2445,7 +2584,9 @@ class _ChatScreenState extends State<ChatScreen>
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.grey[50],
                         borderRadius: const BorderRadius.only(
@@ -2542,7 +2683,8 @@ class _ChatScreenState extends State<ChatScreen>
     final messageContainer = Container(
       // 메시지 최대 너비 제한 (화면 너비의 70%)
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.7,
+        maxWidth:
+            MediaQuery.of(context).size.width * (message.isMe ? 0.7 : 0.6),
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: 15,
@@ -2765,43 +2907,52 @@ class _ChatScreenState extends State<ChatScreen>
     _scrollToBottom();
 
     // 서버로 메시지 전송
-    _signalRService.sendMessage(widget.chatRoomId, messageText).then((_) {
-      // 전송 성공 처리
-      _safeSetState(() {
-        final index = _messages.indexWhere((msg) =>
-            msg.text == messageText && msg.timestamp == newMessage.timestamp);
+    _signalRService
+        .sendMessage(widget.chatRoomId, messageText)
+        .then((_) {
+          // 전송 성공 처리
+          _safeSetState(() {
+            final index = _messages.indexWhere(
+              (msg) =>
+                  msg.text == messageText &&
+                  msg.timestamp == newMessage.timestamp,
+            );
 
-        if (index != -1) {
-          _messages[index] = ChatMessage(
-            text: messageText,
-            isMe: true,
-            timestamp: newMessage.timestamp,
-            senderName: _callerName,
-            status: 'sent', // 성공적으로 전송됨
-          );
-        }
-      });
-    }).catchError((e) {
-      print('메시지 전송 오류: $e');
+            if (index != -1) {
+              _messages[index] = ChatMessage(
+                text: messageText,
+                isMe: true,
+                timestamp: newMessage.timestamp,
+                senderName: _callerName,
+                status: 'sent', // 성공적으로 전송됨
+              );
+            }
+          });
+        })
+        .catchError((e) {
+          print('메시지 전송 오류: $e');
 
-      // 전송 실패 처리
-      _safeSetState(() {
-        final index = _messages.indexWhere((msg) =>
-            msg.text == messageText && msg.timestamp == newMessage.timestamp);
+          // 전송 실패 처리
+          _safeSetState(() {
+            final index = _messages.indexWhere(
+              (msg) =>
+                  msg.text == messageText &&
+                  msg.timestamp == newMessage.timestamp,
+            );
 
-        if (index != -1) {
-          _messages[index] = ChatMessage(
-            text: messageText,
-            isMe: true,
-            timestamp: newMessage.timestamp,
-            senderName: _callerName,
-            status: 'error', // 전송 실패
-          );
-        }
-      });
+            if (index != -1) {
+              _messages[index] = ChatMessage(
+                text: messageText,
+                isMe: true,
+                timestamp: newMessage.timestamp,
+                senderName: _callerName,
+                status: 'error', // 전송 실패
+              );
+            }
+          });
 
-      _showNotification('메시지 전송에 실패했습니다.');
-    });
+          _showNotification('메시지 전송에 실패했습니다.');
+        });
 
     // 검색 모드인 경우 검색 업데이트
     if (_isSearchMode && _lastSearchQuery.isNotEmpty) {
@@ -2866,4 +3017,3 @@ String formatTime(DateTime time) {
   final period = isAfternoon ? '오후' : '오전'; // 오전/오후 표시
   return '$period $hour:$minute'; // 예: 오후 3:05
 }
-
