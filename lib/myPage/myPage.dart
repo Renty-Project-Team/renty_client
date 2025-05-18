@@ -15,6 +15,8 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  int _currentIndex = 4; // 현재 선택된 인덱스
+
   // 회원 기능 항목들
   final List<Map<String, dynamic>> memberFunctions = [
     {'title': '회원 정보 수정', 'icon': Icons.arrow_forward_ios},
@@ -179,8 +181,9 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
       bottomNavigationBar: BottomMenuBar(
-        currentIndex: 4,
+        currentIndex: _currentIndex,
         onTap: (index) async {
+          if (index == _currentIndex) return; // 이미 선택된 탭이면 아무것도 하지 않음
           await navigateBarAction(context, index);
         },
       ),
