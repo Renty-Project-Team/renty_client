@@ -38,7 +38,7 @@ class _MyRentInPageState extends State<MyRentInPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-          ? const Center(child: Text("빌려준 내역이 없습니다."))
+          ? const Center(child: Text("대여중인 제품이 없습니다."))
           : ListView.builder(
         itemCount: _items.length,
         itemBuilder: (context, index) {
