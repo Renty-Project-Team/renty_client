@@ -7,6 +7,7 @@ import 'package:renty_client/post/AdBoard.dart';
 import 'package:renty_client/mypage/myPostService.dart';
 import 'package:renty_client/post/postDataFile.dart';
 import 'package:renty_client/windowClickEvent/scrollEvent.dart';
+import 'package:intl/intl.dart';
 
 class MyPostListPage extends StatefulWidget {
   const MyPostListPage({Key? key}) : super(key: key);
@@ -289,15 +290,12 @@ class ProductCard extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      "${product.priceUnit} ${product.price.toInt()}원",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      "${product.priceUnit} ${NumberFormat("#,###").format(product.price.toInt())}원",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 4),
                     Text(
-                      "보증금: ${product.deposit.toInt()}원",
+                      "보증금: ${NumberFormat("#,###").format(product.deposit.toInt())}원",
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],

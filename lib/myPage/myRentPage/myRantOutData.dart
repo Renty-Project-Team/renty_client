@@ -30,11 +30,17 @@ class RentOutItem {
   });
 
   factory RentOutItem.fromJson(Map<String, dynamic> json) {
+    const unitMap = {
+        'Month': '월',
+        'Week': '주',
+        'Day': '일',
+    };
+
     return RentOutItem(
       roomId: json['roomId'],
       itemId: json['itemId'],
       title: json['title'],
-      priceUnit: json['priceUnit'],
+      priceUnit: unitMap[json['priceUnit']] ?? json['priceUnit'] ?? '',
       price: json['price'],
       finalPrice: json['finalPrice'],
       finalSecurityDeposit: json['finalSecurityDeposit'],

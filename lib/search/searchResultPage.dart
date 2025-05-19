@@ -189,6 +189,7 @@ class _SearchResultPageState extends State<SearchResultPage> {
                             _fetchSearchResults();
                           },
                           child: Container(
+                            color: Colors.transparent,
                             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: isSelected
                                 ? BoxDecoration(
