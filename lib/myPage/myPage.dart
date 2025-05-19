@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:renty_client/bottom_menu_bar.dart';
-import 'package:renty_client/logo_app_ber.dart'; // 로고 앱바 추가
+import 'package:renty_client/logo_app_ber.dart';
 import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
+import 'package:renty_client/core/api_client.dart'; // API 클라이언트 추가
 import 'package:renty_client/myPage/profileEdit.dart';
 import 'package:renty_client/myPage/writeReview.dart';
+import 'package:renty_client/myPage/userInfoEdit.dart'; // 회원 정보 수정 페이지 추가
+import 'package:renty_client/myPage/appInfo.dart'; // 앱 정보 페이지 추가
+import 'package:renty_client/myPage/noticeList.dart'; // 공지사항 페이지 추가가
+import 'package:renty_client/myPage/faqPage.dart'; // FAQ 페이지 추가
+import 'package:renty_client/myPage/inquiryChatbot.dart'; // 1:1 문의 챗봇 페이지 추가
+import 'package:renty_client/myPage/incomePage.dart'; // 수익금 페이지 추가
+import 'package:renty_client/myPage/myPostBoard.dart';
 import 'wish/wishList.dart';
 import 'myRentPage/myRentOut.dart';
 import 'myRentPageBuyer/myRentIn.dart';
@@ -18,6 +26,46 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  // API 클라이언트 인스턴스 추가
+  final ApiClient _apiClient = ApiClient();
+
+  // 프로필 데이터를 저장할 상태 변수 추가
+  String _userName = '';
+  String? _profileImageUrl;
+  bool _isLoading = true; // 로딩 상태 추가
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData(); // 프로필 데이터 로딩
+  }
+
+  // 프로필 데이터 로드 함수
+  Future<void> _loadProfileData() async {
+    try {
+      final response = await _apiClient.client.get('/My/profile');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        setState(() {
+          _userName = data['userName'] ?? '';
+          _profileImageUrl = data['profileImage'];
+          _isLoading = false;
+        });
+      } else {
+        // 에러 처리
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('프로필 데이터 로드 실패: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   int _currentIndex = 4; // 현재 선택된 인덱스
 
   // 회원 기능 항목들
@@ -45,13 +93,95 @@ class _ProfilePageState extends State<ProfilePage> {
     {'title': '앱 정보', 'icon': Icons.arrow_forward_ios},
   ];
 
-  // 항목 클릭 처리 함수
-  void _handleItemClick(String title) {
+  // _handleItemClick 메서드 내에서 수정
+  void _handleItemClick(String title) async {
     // 햅틱 피드백 추가
     HapticFeedback.lightImpact();
 
+    if (title == '회원 정보 수정') {
+      try {
+        // 사용자 정보를 API에서 가져오기
+        final response = await _apiClient.client.get('/My/profile');
+
+        if (response.statusCode == 200) {
+          final data = response.data;
+
+          // UserInfoData 객체 생성
+          final userInfo = UserInfoData(
+            name: data['name'] ?? '',
+            email: data['email'] ?? '',
+            phoneNumber: data['phoneNumber'] ?? '',
+            userName: data['userName'] ?? '',
+            accountNumber: data['accountNumber'],
+          );
+
+          // 회원 정보 수정 페이지로 이동
+          final result = await Navigator.push<UserInfoData>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => UserInfoEditPage(initialInfo: userInfo),
+            ),
+          );
+
+          // 정보가 업데이트되었으면 UI 갱신
+          if (result != null) {
+            // 필요한 경우 상태 업데이트
+            setState(() {
+              _userName = result.userName; // 닉네임이 변경된 경우 업데이트
+            });
+
+            // 프로필 페이지 새로고침
+            _loadProfileData();
+          }
+        } else {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('회원 정보를 불러오는데 실패했습니다.')));
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('오류가 발생했습니다: $e')));
+        print('회원 정보 로드 오류: $e');
+      }
+    } else if (title == '수익금') {
+      // 수익금 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const IncomePage()),
+      );
+    } else if (title == '내 대여 게시글') {
+      // 내 대여 게시글 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MyPostListPage()),
+      );
+    } else if (title == '앱 정보') {
+      // 앱 정보 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AppInfoPage()),
+      );
+    } else if (title == '공지사항') {
+      // 공지사항 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const NoticeListPage()),
+      );
+    } else if (title == '자주 묻는 질문') {
+      // FAQ 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const FAQPage()),
+      );
+    } else if (title == '1:1 문의하기') {
+      // 1:1 문의 챗봇 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const InquiryChatBotPage()),
+      );
     // 대여중인 제품목록 클릭 시 리뷰 작성 페이지로 이동
-    if (title == '받은리뷰') {
+    } else if (title == '받은리뷰') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -71,10 +201,10 @@ class _ProfilePageState extends State<ProfilePage> {
         if (value == true) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다')));
+          ).showSnackBar(const SnackBar(content: Text('회원 정보를 불러오는데 실패했습니다.')));
         }
       });
-    }else if((title == '찜 목록')) {
+    } else if((title == '찜 목록')) {
       Navigator.push(
           context,
           MaterialPageRoute(
@@ -99,6 +229,7 @@ class _ProfilePageState extends State<ProfilePage> {
               builder:
                   (context) => MyRentInPage()
           )
+
       );
     } else {
       // 다른 항목들은 기존과 같이 처리
@@ -221,26 +352,47 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // 프로필 섹션
+  // 프로필 섹션 - 업데이트
   Widget _buildProfileSection(ThemeData theme) {
+    // 로딩 중일 때 표시할 위젯
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Row(
       children: [
-        // 프로필 이미지
+        // 프로필 이미지 - API에서 가져온 이미지가 있으면 표시
         CircleAvatar(
           radius: 32,
           backgroundColor: Colors.grey.withOpacity(0.2),
-          child: Icon(Icons.person, size: 32, color: Colors.grey),
+          child:
+              _profileImageUrl != null && _profileImageUrl!.isNotEmpty
+                  ? ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: Image.network(
+                      '${_apiClient.getDomain}${_profileImageUrl!}', // 서버 도메인 추가
+                      fit: BoxFit.cover,
+                      width: 64,
+                      height: 64,
+                      errorBuilder: (context, error, stackTrace) {
+                        // 이미지 로드 실패 시 기본 아이콘 표시
+                        print('프로필 이미지 로드 오류: $error');
+                        return Icon(Icons.person, size: 32, color: Colors.grey);
+                      },
+                    ),
+                  )
+                  : Icon(Icons.person, size: 32, color: Colors.grey),
         ),
         const SizedBox(width: 16),
 
-        // 사용자 닉네임
+        // 사용자 닉네임 - API에서 가져온 이름 표시
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Text(
-                  '테스트계정',
+                  _userName,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -256,31 +408,30 @@ class _ProfilePageState extends State<ProfilePage> {
           child: InkWell(
             onTap: () async {
               // 현재 사용자 프로필 데이터
-              ProfileData userProfile = ProfileData(
-                nickname: "테스트계정", // 실제로는 서버에서 가져온 사용자 닉네임
-                imageUrl: null, // 실제로는 서버에서 가져온 이미지 URL
-              );
+              final initialProfile = {
+                'nickname': _userName, // API에서 가져온 사용자 닉네임
+                'imageUrl': _profileImageUrl, // API에서 가져온 이미지 URL
+              };
 
-              // 프로필 수정 페이지로 이동하면서 데이터 전달
-              final ProfileData? result = await Navigator.push(
+              // 프로필 수정 페이지로 이동하면서 데이터 전달 (Map 타입으로 일관되게 유지)
+              final result = await Navigator.push<Map<String, dynamic>>(
                 context,
                 MaterialPageRoute(
                   builder:
-                      (context) => ProfileEditPage(initialProfile: userProfile),
+                      (context) =>
+                          ProfileEditPage(initialProfile: initialProfile),
                 ),
               );
 
-              // 결과 데이터가 있으면 처리 (화면 갱신 등)
+              // 결과 데이터가 있으면 처리
               if (result != null) {
-                // TODO: 화면 갱신 또는 상태 업데이트
                 setState(() {
-                  // 상태 업데이트 코드
+                  _userName = result['userName'];
+                  _profileImageUrl = result['profileImage'];
                 });
 
-                // 업데이트 성공 메시지
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('프로필이 업데이트되었습니다')));
+                // 프로필 페이지 새로고침
+                _loadProfileData();
               }
             },
             // 클릭 효과 색상을 연한 회색으로 변경
@@ -298,7 +449,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey[800], // 테마 색상에서 진한 회색으로 변경
+                  color: Colors.grey[800],
                 ),
               ),
             ),

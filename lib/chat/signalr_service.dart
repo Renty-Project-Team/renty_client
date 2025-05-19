@@ -10,6 +10,8 @@ import '../core/token_manager.dart';
 import '../core/api_client.dart';
 import 'chat.dart';
 
+typedef TradeOfferUpdateHandler = void Function(Map<String, dynamic> data);
+
 class SignalRService {
   // 싱글톤 패턴 구현
   static final SignalRService _instance = SignalRService._internal();
@@ -36,8 +38,63 @@ class SignalRService {
   // 현재 발신자(본인) 이름
   String _callerName = '';
 
+  // 현재 채팅방의 상품 이미지 URL 저장
+  String? _productImageUrl;
+
+  // 상품 이미지 URL 설정 메서드
+  void setProductImageUrl(String? url) {
+    if (url != null && url.isNotEmpty) {
+      _productImageUrl = url;
+      print('채팅방 상품 이미지 URL 설정: $_productImageUrl');
+    }
+  }
+
+  // 현재 저장된 상품 이미지 URL 반환
+  String? getProductImageUrl() {
+    return _productImageUrl;
+  }
+
   // 메시지 캐시 (채팅방 ID를 키로 사용)
   final Map<int, List<ChatMessage>> _messageCache = {};
+
+  // 상품 정보 업데이트 알림 처리 함수 타입 정의
+
+  // 상품 정보 업데이트 핸들러
+  TradeOfferUpdateHandler? _tradeOfferUpdateHandler;
+
+  // 상품 정보 업데이트 핸들러 등록 함수
+  void registerTradeOfferUpdateHandler(TradeOfferUpdateHandler? handler) {
+    _tradeOfferUpdateHandler = handler;
+  }
+
+  // 이미지 URL을 완전한 형태로 변환하는 함수 추가
+  String _getFullImageUrl(dynamic imageUrl) {
+    // null이거나 비어있는 경우 처리
+    if (imageUrl == null || (imageUrl is String && imageUrl.isEmpty)) {
+      return '';
+    }
+
+    final String url = imageUrl.toString();
+
+    // 이미 완전한 URL인 경우 그대로 반환
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    // URL이 슬래시로 시작하는지 확인
+    final String baseUrl = ApiClient().getDomain;
+    final bool urlStartsWithSlash = url.startsWith('/');
+    final bool baseEndsWithSlash = baseUrl.endsWith('/');
+
+    // 중복 슬래시 방지하며 URL 결합
+    if (urlStartsWithSlash && baseEndsWithSlash) {
+      return baseUrl + url.substring(1);
+    } else if (!urlStartsWithSlash && !baseEndsWithSlash) {
+      return '$baseUrl/$url';
+    } else {
+      return baseUrl + url;
+    }
+  }
 
   // 초기화 함수
   Future<void> initialize() async {
@@ -58,7 +115,8 @@ class SignalRService {
       final httpConnectionOptions = HttpConnectionOptions(
         logger: Logger("SignalRLogger"),
         logMessageContent: true,
-        accessTokenFactory: () async => await TokenManager.getToken() ?? "", // 토큰을 가져오는 비동기 함수
+        accessTokenFactory:
+            () async => await TokenManager.getToken() ?? "", // 토큰을 가져오는 비동기 함수
       );
 
       // 허브 연결 객체 생성
@@ -94,13 +152,68 @@ class SignalRService {
         // 발신자가 자신인지 확인 (CallerName과 비교)
         final bool isMe = senderName == _callerName;
 
+        // 메시지 내용 확인
+        String content = messageData['content'] ?? '';
+        String messageType = 'text';
+        Map<String, dynamic>? productData;
+
+        // JSON 형식인지 확인
+        if (content.startsWith('{') && content.endsWith('}')) {
+          try {
+            final jsonData = jsonDecode(content);
+
+            // 상품 정보 메시지인지 확인 (Type: Request 형식)
+            if (jsonData['Type'] == 'Request' && jsonData['Data'] != null) {
+              messageType = 'product_update';
+
+              // 디버깅용 데이터 출력
+              print('상품 정보 데이터: ${jsonData['Data']}');
+
+              // 상품 정보 추출
+              productData = {
+                'title': jsonData['Data']['ProductName'] ?? '',
+                'price':
+                    jsonData['Data']['RentalPrice']
+                        ?.toString()
+                        .replaceAll('일 ', '')
+                        .replaceAll('원', '') ??
+                    '0',
+                'deposit':
+                    jsonData['Data']['Deposit']?.toString().replaceAll(
+                      '원',
+                      '',
+                    ) ??
+                    '0',
+                'startDate': jsonData['Data']['StartDate'],
+                'endDate': jsonData['Data']['EndDate'],
+                'messageId': DateTime.now().millisecondsSinceEpoch.toString(),
+                // 저장된 채팅방 상품 이미지 URL 사용
+                'imageUrl': _productImageUrl,
+              };
+
+              print(
+                'DEBUG: 상품 수정 메시지 생성 - 이미지 URL: ${productData['imageUrl']}',
+              );
+
+              // 메시지 텍스트 변경
+              content = isMe ? "상품 정보를 수정했습니다" : "판매자가 상품 정보를 수정했습니다";
+            }
+          } catch (e) {
+            print('JSON 메시지 파싱 실패: $e');
+          }
+        }
+
         // 채팅 메시지 객체 생성
         final message = ChatMessage(
-          text: messageData['content'] ?? '',
+          text: content,
           isMe: isMe,
           timestamp: DateTime.parse(
             messageData['sendAt'] ?? DateTime.now().toIso8601String(),
           ),
+          senderName: senderName,
+          messageType: messageType,
+          productData: productData,
+          status: 'sent',
         );
 
         // 메시지 캐시에 추가
@@ -132,6 +245,23 @@ class SignalRService {
     _hubConnection?.onclose(({error}) {
       _isConnected = false;
       print('SignalR 연결 종료: ${error?.toString() ?? "정상 종료"}');
+    });
+
+    // 상품 정보 업데이트 알림 처리
+    _hubConnection?.on("ReceiveTradeOfferUpdate", (arguments) {
+      if (arguments == null || arguments.isEmpty) return;
+
+      try {
+        final data = arguments[0] as Map<String, dynamic>;
+        print('상품 정보 업데이트 알림 수신: $data');
+
+        // 등록된 핸들러가 있으면 호출
+        if (_tradeOfferUpdateHandler != null) {
+          _tradeOfferUpdateHandler!(data);
+        }
+      } catch (e) {
+        print('상품 정보 업데이트 알림 처리 오류: $e');
+      }
     });
   }
 
@@ -226,6 +356,30 @@ class SignalRService {
     } catch (e) {
       print('메시지 전송 오류: $e');
       rethrow;
+    }
+  }
+
+  Future<void> sendProductUpdateMessage(int roomId, String message) async {
+    if (_hubConnection == null ||
+        _hubConnection!.state != HubConnectionState.Connected) {
+      print('DEBUG: SignalR 연결이 없거나 연결 상태가 아닙니다.');
+      throw Exception('Hub connection is not in the Connected state.');
+    }
+
+    try {
+      // 일반 sendMessage와 동일한 형식으로 호출
+      await _hubConnection!.invoke(
+        'SendMessage',
+        args: [
+          roomId, // 문자열이 아닌 정수형으로 전달
+          message,
+          0, // 메시지 타입도 일반 메시지와 같이 숫자로 전달
+        ],
+      );
+      print('상품 정보 메시지 전송 성공');
+    } catch (e) {
+      print('상품 정보 메시지 전송 오류: $e');
+      throw Exception('Error sending product update message: $e');
     }
   }
 
@@ -341,5 +495,6 @@ class SignalRService {
   void dispose() {
     disconnect();
     _messageStreamController.close();
+    _tradeOfferUpdateHandler = null; // 핸들러 참조 제거
   }
 }
