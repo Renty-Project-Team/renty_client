@@ -10,6 +10,7 @@ class Product {
   final int chatCount;
   final DateTime createdAt;
   final String imageUrl;
+  final String userName;
 
   Product({
     required this.id,
@@ -23,18 +24,15 @@ class Product {
     required this.chatCount,
     required this.createdAt,
     required this.imageUrl,
+    required this.userName,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    const unitMap = {
-      'Month': '월',
-      'Week': '주',
-      'Day': '일',
-    };
+    const unitMap = {'Month': '월', 'Week': '주', 'Day': '일'};
     return Product(
       id: json['id'] ?? 0,
       title: json['title'] ?? '',
-      price: (json['price']?? 0),
+      price: (json['price'] ?? 0),
       deposit: (json['deposit'] ?? 0),
       categorys: List<String>.from(json['categorys'] ?? []),
       priceUnit: unitMap[json['priceUnit']] ?? json['priceUnit'] ?? '',
@@ -43,6 +41,7 @@ class Product {
       chatCount: json['chatCount'] ?? 0,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       imageUrl: json['imageUrl'] ?? '',
+      userName: json['userName'] ?? '', // JSON에서 userName 파싱 추가
     );
   }
 }
