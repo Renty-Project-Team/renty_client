@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:renty_client/bottom_menu_bar.dart';
+import 'package:renty_client/login/login.dart';
 import 'package:renty_client/logo_app_ber.dart';
 import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
@@ -58,7 +60,22 @@ class _ProfilePageState extends State<ProfilePage> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    }
+    on DioException catch (e) {
+      // DioException 처리
+      if (e.response?.statusCode == 401) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        }
+      }
+      print('프로필 데이터 로드 실패: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    } 
+    catch (e) {
       print('프로필 데이터 로드 실패: $e');
       setState(() {
         _isLoading = false;
