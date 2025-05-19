@@ -37,6 +37,7 @@ class PaymentCompletionPage extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        automaticallyImplyLeading: false, // 뒤로가기 버튼 제거
       ),
       body: Column(
         children: [

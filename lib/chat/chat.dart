@@ -286,6 +286,41 @@ class _ChatScreenState extends State<ChatScreen>
   // 메시지 수신 처리
   void _onMessageReceived(ChatMessage message) {
     print('DEBUG: 메시지 수신 - 발신자: ${message.senderName}, 현재 사용자: $_callerName');
+
+    // 상품 정보 업데이트 메시지인 경우 상단 상품 정보 업데이트
+    if (message.messageType == 'product_update' &&
+        message.productData != null) {
+      print('DEBUG: 상품 정보 업데이트 메시지 수신, 상단 UI 업데이트 시도');
+
+      // 날짜 정보 파싱 및 업데이트
+      DateTime? startDate;
+      DateTime? endDate;
+      try {
+        if (message.productData!['startDate'] != null) {
+          startDate =
+              DateTime.parse(message.productData!['startDate']).toLocal();
+        }
+        if (message.productData!['endDate'] != null) {
+          endDate = DateTime.parse(message.productData!['endDate']).toLocal();
+        }
+      } catch (e) {
+        print('DEBUG: 상품 업데이트 메시지 날짜 파싱 오류: $e');
+      }
+
+      _safeSetState(() {
+        _product = Product(
+          title: message.productData!['title'] ?? '상품 정보 없음',
+          price: message.productData!['price'] ?? '0',
+          priceUnit: '일',
+          deposit: message.productData!['deposit'] ?? '0',
+          imageUrl: _product.imageUrl, // 기존 상품의 이미지 URL 유지
+        );
+        _productStartDate = startDate;
+        _productEndDate = endDate;
+        print('DEBUG: 상단 상품 정보 업데이트 완료: ${_product.title}');
+      });
+    }
+
     setState(() {
       _messages.add(message);
       _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -456,18 +491,19 @@ class _ChatScreenState extends State<ChatScreen>
           _itemId = data['offer']['itemId'] ?? 0;
           print('DEBUG: 상품 ID: $_itemId');
 
-          // imageUrl 가져오기
+          // 이미지 URL 처리
           final imageUrl = data['offer']['imageUrl'];
-          print('DEBUG: 원본 이미지 URL: $imageUrl');
-
-          // 서버 도메인과 이미지 경로 결합
           String? fullImageUrl;
+
           if (imageUrl is String &&
               imageUrl.isNotEmpty &&
               imageUrl != "string") {
             final ApiClient apiClient = ApiClient();
             fullImageUrl = '${apiClient.getDomain}$imageUrl';
             print('DEBUG: 변환된 이미지 URL: $fullImageUrl');
+
+            // 이미지 URL을 SignalR 서비스에 설정 (추가)
+            _signalRService.setProductImageUrl(fullImageUrl);
           }
 
           // 날짜 정보 추출 및 저장
@@ -952,29 +988,22 @@ class _ChatScreenState extends State<ChatScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-              backgroundColor: Colors.white, // 배경색 흰색으로 명시적 설정
+              backgroundColor: Colors.white,
               child: SingleChildScrollView(
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                  ), // 전체 컨테이너에 상하 패딩 추가
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 상품 정보 영역
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          24,
-                          24,
-                          24,
-                          20,
-                        ), // 패딩 증가
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 상품 이미지
+                            // 상품 이미지 - 채팅방 상단 상품 정보의 이미지 사용
                             Container(
                               width: 80,
                               height: 80,
@@ -1011,7 +1040,7 @@ class _ChatScreenState extends State<ChatScreen>
                                         color: Colors.grey[500],
                                       ),
                             ),
-                            const SizedBox(width: 24), // 간격 증가
+                            const SizedBox(width: 24),
                             // 상품 제목 (수정 불가 - 표시만 함)
                             Expanded(
                               child: Text(
@@ -1028,12 +1057,7 @@ class _ChatScreenState extends State<ChatScreen>
 
                       // 대여 가격 설정 영역
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          24,
-                          14,
-                          24,
-                          14,
-                        ), // 패딩 증가
+                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1044,12 +1068,12 @@ class _ChatScreenState extends State<ChatScreen>
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 20), // 간격 증가
+                            const SizedBox(height: 20),
                             Row(
                               children: [
                                 // 단위 선택 드롭다운 - 더 넓게 설정
                                 Container(
-                                  width: 120, // 날짜 선택 영역 너비 명시적 설정
+                                  width: 120,
                                   padding: const EdgeInsets.only(bottom: 8),
                                   decoration: const BoxDecoration(
                                     border: Border(
@@ -1066,8 +1090,7 @@ class _ChatScreenState extends State<ChatScreen>
                                         Icons.keyboard_arrow_down,
                                       ),
                                       isDense: true,
-                                      isExpanded:
-                                          true, // 드롭다운이 컨테이너 너비를 채우도록 설정
+                                      isExpanded: true,
                                       hint: const Text("단위"),
                                       style: const TextStyle(
                                         color: Colors.black,
@@ -1094,7 +1117,7 @@ class _ChatScreenState extends State<ChatScreen>
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 20), // 간격 증가
+                                const SizedBox(width: 20),
                                 // 가격 입력 필드 - 아래 선만 있는 스타일로 변경
                                 Expanded(
                                   child: Container(
@@ -1173,12 +1196,7 @@ class _ChatScreenState extends State<ChatScreen>
 
                       // 보증금 설정 영역 - 아래 선만 있는 동일한 디자인
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          24,
-                          20,
-                          24,
-                          20,
-                        ), // 패딩 증가
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1189,7 +1207,7 @@ class _ChatScreenState extends State<ChatScreen>
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 20), // 간격 증가
+                            const SizedBox(height: 20),
                             Container(
                               padding: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
@@ -1442,12 +1460,7 @@ class _ChatScreenState extends State<ChatScreen>
 
                       // 하단 버튼 영역 (우측 배치)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          24,
-                          14,
-                          24,
-                          24,
-                        ), // 패딩 증가
+                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -1468,7 +1481,7 @@ class _ChatScreenState extends State<ChatScreen>
                                 style: TextStyle(fontSize: 14),
                               ),
                             ),
-                            const SizedBox(width: 10), // 간격 증가
+                            const SizedBox(width: 10),
                             // 수정하기 버튼 - 그림자 제거
                             ElevatedButton(
                               onPressed:

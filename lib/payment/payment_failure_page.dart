@@ -39,6 +39,7 @@ class PaymentFailurePage extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [
@@ -49,10 +50,14 @@ class PaymentFailurePage extends StatelessWidget {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFEBEB),  // 연한 빨간색 배경
+              color: const Color(0xFFFFEBEB), // 연한 빨간색 배경
               borderRadius: BorderRadius.circular(50),
             ),
-            child: const Icon(Icons.close, size: 60, color: Color(0xFFFF3B30)),  // 빨간 X 아이콘
+            child: const Icon(
+              Icons.close,
+              size: 60,
+              color: Color(0xFFFF3B30),
+            ), // 빨간 X 아이콘
           ),
 
           const SizedBox(height: 24),
@@ -69,10 +74,7 @@ class PaymentFailurePage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
               errorMessage,
-              style: const TextStyle(
-                fontSize: 16, 
-                color: Color(0xFFFF3B30),
-              ),
+              style: const TextStyle(fontSize: 16, color: Color(0xFFFF3B30)),
               textAlign: TextAlign.center,
             ),
           ),
@@ -142,9 +144,7 @@ class PaymentFailurePage extends StatelessWidget {
                       // 채팅방으로 돌아가기
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatListPage(),
-                        ),
+                        MaterialPageRoute(builder: (context) => ChatListPage()),
                         (route) => route.isFirst, // 홈 화면만 남기고 모든 화면 제거
                       );
                     },
@@ -190,7 +190,9 @@ class PaymentFailurePage extends StatelessWidget {
         Flexible(
           child: Text(
             value,
-            style: valueStyle ?? const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style:
+                valueStyle ??
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             textAlign: TextAlign.right,
             overflow: TextOverflow.ellipsis,
             maxLines: 1,

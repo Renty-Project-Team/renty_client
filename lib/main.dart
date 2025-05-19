@@ -45,8 +45,6 @@ Future<void> navigateBarAction(BuildContext context, int index) async {
       Navigator.pushNamed(context, '/login'); // 로그인 화면으로 이동
     }
   } else if (index == 4) {
-    // my 탭 클릭 시
-    // Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
     if (await TokenManager.getToken() != null) {
       // 로컬에 토큰 쿠키가 있는지 확인
       Navigator.pushNamed(context, '/mypage'); // 등록 화면으로 이동
