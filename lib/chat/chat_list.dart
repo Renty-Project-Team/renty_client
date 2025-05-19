@@ -4,6 +4,7 @@ import '../core/token_manager.dart';
 import '../bottom_menu_bar.dart';
 import '../logo_app_ber.dart';
 import 'dart:math' as math;
+import 'dart:convert';
 import 'chat.dart';
 import '../core/api_client.dart';
 import 'package:dio/dio.dart';
@@ -341,16 +342,9 @@ class _ChatListPageState extends State<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  _buildLastMessage(
                     chatRoom['message'] ?? '새로운 채팅방이 생성되었습니다.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black,
-                      fontWeight:
-                          unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    chatRoom['roomName'],
                   ),
                 ],
               ),
@@ -358,6 +352,50 @@ class _ChatListPageState extends State<ChatListPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLastMessage(String lastMessage, String senderName) {
+    // JSON 메시지인지 확인
+    if (lastMessage.startsWith('{') && lastMessage.endsWith('}')) {
+      try {
+        final jsonData = json.decode(lastMessage);
+
+        // 상품 정보 업데이트 메시지인 경우
+        if (jsonData['Type'] == 'Request' && jsonData['Data'] != null) {
+          // 메시지 발신자에 따라 다른 텍스트 표시
+          final sender = jsonData['Sender'];
+          if (sender == senderName) {
+            return const Text(
+              '상품을 수정했습니다.',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 14,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          } else {
+            return const Text(
+              '판매자가 상품을 수정했습니다.',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 14,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 원본 메시지 표시
+      }
+    }
+
+    // 일반 메시지는 그대로 표시
+    return Text(
+      lastMessage,
+      style: TextStyle(color: Colors.grey, fontSize: 14),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 
