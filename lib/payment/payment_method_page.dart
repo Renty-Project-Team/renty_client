@@ -94,8 +94,7 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
       PaymentMethod(
         type: PaymentMethodType.card,
         name: '신용/체크카드',
-        icon: '💳',
-        isPopular: true,
+        icon: '💳'
       ),
       PaymentMethod(
         type: PaymentMethodType.virtualAccount,
@@ -118,7 +117,12 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
         name: '네이버페이',
         icon: '🟩',
       ),
-      PaymentMethod(type: PaymentMethodType.tossPay, name: '토스페이', icon: '🔵'),
+      PaymentMethod(
+        type: PaymentMethodType.tossPay,
+        name: '토스페이',
+        icon: '🔵',
+        isPopular: true,
+      ),
       PaymentMethod(
         type: PaymentMethodType.phonePay,
         name: '휴대폰 결제',
@@ -873,7 +877,7 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
         totalPrice: widget.totalPrice,
         deposit: widget.deposit,
         context: context, // 컨텍스트 전달
-        onSuccess: (message) {
+        onSuccess: (message) async {
           if (!mounted) return;
 
           // 성공 메시지 표시

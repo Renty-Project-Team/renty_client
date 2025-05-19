@@ -12,6 +12,7 @@ class TradeOfferRequest {
   final num securityDeposit;
   final String? borrowStartAt;
   final String? returnAt;
+  final int tradeOfferVersion;
 
   TradeOfferRequest({
     required this.itemId,
@@ -21,6 +22,7 @@ class TradeOfferRequest {
     required this.securityDeposit,
     this.borrowStartAt,
     this.returnAt,
+    required this.tradeOfferVersion,
   });
 
   Map<String, dynamic> toJson() {
@@ -32,6 +34,7 @@ class TradeOfferRequest {
       'securityDeposit': securityDeposit,
       'borrowStartAt': borrowStartAt,
       'returnAt': returnAt,
+      'tradeOfferVersion': tradeOfferVersion,
     };
   }
 }
@@ -76,6 +79,11 @@ class TradeButtonService {
     DateTime? endDate, // 판매자가 설정한 종료일
     required int tradeOfferVersion,
   }) {
+    print('==== 구매 모달 디버깅 ====');
+    print('itemId: $itemId');
+    print('tradeOfferVersion: $tradeOfferVersion');
+    print('상품 정보: ${product.title}, 가격: ${product.price}, 보증금: ${product.deposit}');
+    
     // 가격 문자열을 적절하게 숫자로 변환하는 부분 수정
     int price;
     int deposit;
@@ -490,6 +498,7 @@ class TradeButtonService {
         securityDeposit: depositValue,
         borrowStartAt: borrowStartAt,
         returnAt: returnAt,
+        tradeOfferVersion: 0, // Assuming a default tradeOfferVersion
       );
 
       // API 요청 실행
@@ -525,8 +534,9 @@ class TradeButtonService {
     required String priceUnit,
     required String deposit,
     required String buyerName,
-    String? borrowStartAt, // 시작 날짜 추가
-    String? returnAt, // 종료 날짜 추가
+    String? borrowStartAt,
+    String? returnAt,
+    required int tradeOfferVersion,
     required Function(String) onSuccess,
     required Function(String) onError,
   }) async {
@@ -542,7 +552,6 @@ class TradeButtonService {
         String cleanDeposit = deposit.replaceAll(',', '');
         depositValue = num.parse(cleanDeposit);
       } catch (e) {
-        // onError 호출 전에 이벤트 루프를 사용하여 현재 실행 컨텍스트 벗어나기
         Future.microtask(() => onError('가격 또는 보증금 값이 올바르지 않습니다.'));
         return false;
       }
@@ -554,8 +563,9 @@ class TradeButtonService {
         price: priceValue,
         priceUnit: priceUnit,
         securityDeposit: depositValue,
-        borrowStartAt: borrowStartAt, // 시작 날짜 추가
-        returnAt: returnAt, // 종료 날짜 추가
+        borrowStartAt: borrowStartAt,
+        returnAt: returnAt,
+        tradeOfferVersion: tradeOfferVersion,
       );
 
       // API 호출
@@ -565,7 +575,6 @@ class TradeButtonService {
       );
 
       if (response.statusCode == 200) {
-        // 콜백을 microtask로 예약하여 현재 실행 컨텍스트 벗어나기
         Future.microtask(() => onSuccess('상품 정보가 성공적으로 수정되었습니다.'));
         return true;
       } else {

@@ -27,9 +27,12 @@ class PaymentService {
     try {
       await _apiClient.initialize();
 
-      print('==== 결제 요청 데이터 ====');
-      print('itemId: $itemId');
-      print('tradeOfferVersion: $tradeOfferVersion');
+      print('==== 결제 요청 상세 정보 ====');
+      print('상품 ID: $itemId');
+      print('결제 시도 버전: $tradeOfferVersion');
+      print('상품 정보: ${product.title}');
+      print('가격: $totalPrice, 보증금: $deposit');
+      print('대여 기간: ${startDate.toString()} ~ ${endDate.toString()}');
 
       // POST /api/Transaction/payments API 호출
       final response = await _apiClient.client.post(
@@ -50,9 +53,13 @@ class PaymentService {
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 409) {
-        // 버전 불일치 오류 - 판매자가 상품 정보를 최근에 수정함
+        print('==== 버전 불일치 오류 (409) ====');
+        print('요청한 버전: $tradeOfferVersion');
         onError('판매자가 상품 정보를 변경했습니다. 최신 정보로 다시 시도해주세요.');
       } else if (e.response?.statusCode == 400) {
+        print('==== 버전 불일치 오류 (400) ====');
+        print('요청한 버전: $tradeOfferVersion');
+        print('서버 응답: ${e.response?.data}');
         // 기본 오류 메시지
         String errorMessage = '결제 요청 처리 중 문제가 발생했습니다.';
 

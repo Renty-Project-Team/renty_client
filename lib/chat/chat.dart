@@ -164,6 +164,8 @@ class _ChatScreenState extends State<ChatScreen>
   double _screenHeight = 0.0;
   double _screenWidth = 0.0;
 
+  int _tradeOfferVersion = 0; // tradeOfferVersion 변수 추가
+
   @override
   void initState() {
     super.initState();
@@ -349,6 +351,10 @@ class _ChatScreenState extends State<ChatScreen>
     final offerData = data['offer'];
     if (offerData == null) return;
 
+    // 버전 정보 업데이트
+    _tradeOfferVersion = offerData['version'] ?? _tradeOfferVersion;
+    print('DEBUG: 상품 정보 업데이트 알림 수신 - 새로운 버전: $_tradeOfferVersion');
+
     // 이미지 URL 처리
     String? fullImageUrl;
     final imageUrl = offerData['imageUrl'];
@@ -490,6 +496,10 @@ class _ChatScreenState extends State<ChatScreen>
 
           _itemId = data['offer']['itemId'] ?? 0;
           print('DEBUG: 상품 ID: $_itemId');
+
+          // 버전 정보 업데이트
+          _tradeOfferVersion = data['offer']['version'] ?? 0;
+          print('DEBUG: 초기 로딩된 tradeOfferVersion: $_tradeOfferVersion');
 
           // 이미지 URL 처리
           final imageUrl = data['offer']['imageUrl'];
@@ -917,10 +927,19 @@ class _ChatScreenState extends State<ChatScreen>
 
   // 상품 수정 모달 표시 함수
   void _showProductEditModal() {
+    // 상품 정보 로드하여 최신 버전 가져오기 - 모달 열 때 이미 최신 버전이 로드되어 있어야 함
+    // _loadProductInfo(); // 주석 처리 또는 제거
+    
     // 현재 상품 정보를 수정할 임시 변수
     String title = _product.title;
     String price = _product.price;
     String deposit = _product.deposit;
+
+    // 버전 증가 로직 제거 - 서버 또는 알림으로 버전 업데이트를 받음
+    // _tradeOfferVersion += 1;
+    // print('==== 상품 수정 시작 ====');
+    // print('수정 전 버전: ${_tradeOfferVersion - 1}');
+    // print('수정 후 버전: $_tradeOfferVersion');
 
     // 영어 단위를 한글로 매핑
     String priceUnit = _product.priceUnit;
@@ -1617,6 +1636,7 @@ class _ChatScreenState extends State<ChatScreen>
                                           buyerName: buyerName,
                                           borrowStartAt: startDateStr,
                                           returnAt: endDateStr,
+                                          tradeOfferVersion: _tradeOfferVersion, // 현재 버전 사용
                                           onSuccess: (message) {
                                             if (!mounted || _isDisposed) return;
 
@@ -2299,17 +2319,21 @@ class _ChatScreenState extends State<ChatScreen>
                 _isSeller
                     ? _showProductEditModal
                     : () {
-                      final tradeButtonService = TradeButtonService();
-                      tradeButtonService.showPurchaseModal(
-                        context,
-                        _product,
-                        _callerName,
-                        _itemId,
-                        startDate: _productStartDate,
-                        endDate: _productEndDate,
-                        tradeOfferVersion: 0,
-                      );
-                    },
+                        // 구매하기 버튼 클릭 시 버전 정보 로깅
+                        print('==== 구매하기 버튼 클릭 ====');
+                        print('현재 상품 버전: $_tradeOfferVersion');
+
+                        final tradeButtonService = TradeButtonService();
+                        tradeButtonService.showPurchaseModal(
+                          context,
+                          _product,
+                          _callerName,
+                          _itemId,
+                          startDate: _productStartDate,
+                          endDate: _productEndDate,
+                          tradeOfferVersion: _tradeOfferVersion, // 현재 버전 사용
+                        );
+                      },
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFF3154FF),
               foregroundColor: Colors.white,
@@ -3019,6 +3043,38 @@ class _ChatScreenState extends State<ChatScreen>
     _cachedOverlay = null; // 캐시된 오버레이 참조만 정리
 
     super.dispose();
+  }
+
+  Future<void> _loadProductInfo() async {
+    try {
+      print('==== 상품 정보 로딩 시작 ====');
+      print('상품 ID: $_itemId');
+      print('현재 버전: $_tradeOfferVersion');
+      
+      final response = await _apiClient.client.get('/Item/$_itemId');
+      print('상품 정보 응답: ${response.data}');
+      
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final newVersion = data['version'] ?? 0;
+        print('서버의 최신 버전: $newVersion');
+        print('현재 클라이언트 버전: $_tradeOfferVersion');
+        
+        setState(() {
+          _product = Product(
+            title: data['title'] ?? '',
+            price: data['price']?.toString() ?? '0',
+            priceUnit: data['priceUnit'] ?? '일',
+            deposit: data['deposit']?.toString() ?? '0',
+            imageUrl: data['imageUrl'],
+          );
+          _tradeOfferVersion = newVersion;
+          print('상품 정보 로딩 완료 - 새로운 버전: $_tradeOfferVersion');
+        });
+      }
+    } catch (e) {
+      print('상품 정보 로딩 실패: $e');
+    }
   }
 }
 
