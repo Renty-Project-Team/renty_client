@@ -45,7 +45,7 @@ class RentInDetailPage extends StatelessWidget {
                 _infoRow("상품 가격", "${item.finalPrice.toInt()}원"),
                 _infoRow("보증금", "${item.finalSecurityDeposit.toInt()}원"),
                 const Divider(),
-                _infoRow("총 결제금액", "${item.finalPrice + item.finalSecurityDeposit.toInt()}원", isBold: true),
+                _infoRow("총 결제금액", "${(item.finalPrice + item.finalSecurityDeposit).toInt()}원", isBold: true),
               ],
             ),
 

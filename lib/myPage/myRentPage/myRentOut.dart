@@ -137,7 +137,7 @@ class _MyRentOutPageState extends State<MyRentOutPage> {
                           int? chatRoomId = item.roomId;
 
                           if (chatRoomId == null) {
-                            final chatRoom = await RentOutService.createOrGetChatRoom(item.itemId);
+                            final chatRoom = await RentOutService.createOrGetChatRoom(item.itemId,item.buyerName ?? '알수없음');
                             if (chatRoom != null) {
                               chatRoomId = chatRoom['chatRoomId'];
                             }

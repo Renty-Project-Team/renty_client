@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:renty_client/main.dart';
 import 'myRentInService.dart';
 import 'package:renty_client/mypage/myRentPage/myRantOutData.dart';
-import 'package:renty_client/mypage/myRentPage/RentOutDetail.dart';
+import 'RentInDetail.dart';
 import 'package:renty_client/chat/chat.dart';
 
 class MyRentInPage extends StatefulWidget {
@@ -171,7 +171,7 @@ class _MyRentInPageState extends State<MyRentInPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => RentOutDetailPage(item: item),
+                              builder: (_) => RentInDetailPage(item: item),
                             ),
                           );
                         },
