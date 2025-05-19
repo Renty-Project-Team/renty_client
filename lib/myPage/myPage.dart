@@ -6,6 +6,9 @@ import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/myPage/profileEdit.dart';
 import 'package:renty_client/myPage/writeReview.dart';
+import 'wish/wishList.dart';
+import 'myRentPage/myRentOut.dart';
+import 'myRentPageBuyer/myRentIn.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -28,6 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // 내 활동 항목들
   final List<Map<String, dynamic>> myActivities = [
     {'title': '찜 목록', 'icon': Icons.arrow_forward_ios},
+    {'title': '빌려준 제품목록', 'icon': Icons.arrow_forward_ios},
     {'title': '대여중인 제품목록', 'icon': Icons.arrow_forward_ios},
     {'title': '받은 리뷰', 'icon': Icons.arrow_forward_ios},
     {'title': '작성한 리뷰', 'icon': Icons.arrow_forward_ios},
@@ -47,12 +51,13 @@ class _ProfilePageState extends State<ProfilePage> {
     HapticFeedback.lightImpact();
 
     // 대여중인 제품목록 클릭 시 리뷰 작성 페이지로 이동
-    if (title == '대여중인 제품목록') {
+    if (title == '받은리뷰') {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder:
-              (context) => ReviewWritePage(
+              (context) =>
+              ReviewWritePage(
                 productTitle: '예제 상품 입니다',
                 productImageUrl: null, // 이미지 URL이 아직 없음
                 rentalDate: DateTime.now().subtract(
@@ -69,6 +74,32 @@ class _ProfilePageState extends State<ProfilePage> {
           ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다')));
         }
       });
+    }else if((title == '찜 목록')) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder:
+                  (context) =>
+                  WishlistPage()
+          )
+      );
+    }else if(title == '빌려준 제품목록') {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder:
+                  (context) =>
+                  MyRentOutPage()
+          )
+      );
+    }else if(title == '대여중인 제품목록'){
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder:
+                  (context) => MyRentInPage()
+          )
+      );
     } else {
       // 다른 항목들은 기존과 같이 처리
       ScaffoldMessenger.of(

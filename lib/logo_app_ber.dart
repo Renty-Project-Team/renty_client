@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 class LogoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
-  const LogoAppBar({super.key, this.showBackButton = true}); // 기본값 true
+  const LogoAppBar({super.key, this.showBackButton = false}); // 기본값 true
 
   @override
   Widget build(BuildContext context) {
