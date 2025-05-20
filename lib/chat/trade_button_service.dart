@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import 'chat.dart';
 import '../payment/payment_confirm_page.dart';
+import 'package:dio/dio.dart';
 
 class TradeOfferRequest {
   final int itemId;
@@ -539,6 +540,7 @@ class TradeButtonService {
     required int tradeOfferVersion,
     required Function(String) onSuccess,
     required Function(String) onError,
+    String? customErrorMessage,
   }) async {
     try {
       // 숫자 값 변환
@@ -581,23 +583,59 @@ class TradeButtonService {
         Future.microtask(() => onError('서버 응답 오류: ${response.statusCode}'));
         return false;
       }
-    } catch (e) {
+    } on DioException catch (e) { // DioException을 구체적으로 catch합니다.
       // 에러 처리도 microtask로 전환
-      String errorMessage = '네트워크 오류가 발생했습니다: ${e.toString()}';
+      String errorMessage = '네트워크 오류가 발생했습니다: ${e.message}'; // DioException에서는 e.message를 사용합니다.
 
-      if (e.toString().contains('400')) {
-        if (e.toString().contains('거래 오퍼를 찾을 수 없습니다')) {
-          errorMessage = '거래 오퍼를 찾을 수 없습니다.';
-        } else if (e.toString().contains('잘못된 거래 오퍼입니다')) {
-          errorMessage = '잘못된 거래 오퍼입니다.';
-        } else if (e.toString().contains('거래 오퍼를 수정할 수 없습니다')) {
-          errorMessage = '거래 오퍼를 수정할 수 없습니다.';
+      if (e.response?.statusCode == 400) {
+        // 400 에러의 구체적인 내용을 확인합니다.
+        final responseData = e.response?.data;
+        if (responseData != null && responseData is Map<String, dynamic>) {
+          // 'offer' 객체와 그 안의 'state' 필드를 확인합니다.
+          if (responseData.containsKey('offer') && responseData['offer'] is Map<String, dynamic>) {
+            final offerData = responseData['offer'] as Map<String, dynamic>;
+            if (offerData.containsKey('state') && offerData['state'] == 'Accept') {
+              errorMessage = customErrorMessage ?? '이미 결제가 완료된 상품입니다.'; // 결제 완료된 상품에 대한 사용자 정의 메시지
+            } else {
+               // offer 상태가 Accept가 아닌 다른 경우 또는 다른 400 에러
+               if (responseData.containsKey('detail')) {
+                 errorMessage = responseData['detail']; // detail 필드에 오류 메시지가 있다면 사용
+               } else if (responseData.containsKey('Detail')) {
+                 errorMessage = responseData['Detail']; // Detail 필드 확인
+               } else if (responseData.containsKey('title')) {
+                 errorMessage = responseData['title']; // title 필드 확인
+               } else {
+                 errorMessage = '요청을 처리할 수 없습니다: ${e.response?.statusCode}'; // 일반적인 400 에러 메시지
+               }
+            }
+          } else {
+            // 'offer' 객체가 없거나 Map이 아닌 경우의 400 에러
+            if (responseData.containsKey('detail')) {
+               errorMessage = responseData['detail'];
+            } else if (responseData.containsKey('Detail')) {
+              errorMessage = responseData['Detail'];
+            } else if (responseData.containsKey('title')) {
+              errorMessage = responseData['title'];
+            } else {
+               errorMessage = '요청 데이터 형식이 잘못되었습니다.'; // offer 객체 없는 경우 기본 메시지
+            }
+          }
         } else {
-          errorMessage = '요청을 처리할 수 없습니다: ${e.toString()}';
+          errorMessage = '잘못된 요청입니다. 서버 응답 형식이 올바르지 않습니다.'; // 응답 데이터 자체가 없는 경우
         }
+      } else {
+         // 400 이외의 DioError 처리
+         if (e.response?.statusCode != null) {
+            errorMessage = '서버 응답 오류: ${e.response?.statusCode}';
+         } else {
+            errorMessage = '네트워크 오류가 발생했습니다: ${e.message}';
+         }
       }
 
       Future.microtask(() => onError(errorMessage));
+      return false;
+    } catch (e) { // 예상치 못한 다른 오류
+      Future.microtask(() => onError('예상치 못한 오류가 발생했습니다: ${e.toString()}'));
       return false;
     }
   }

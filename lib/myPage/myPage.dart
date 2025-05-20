@@ -7,15 +7,15 @@ import 'package:renty_client/logo_app_ber.dart';
 import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/core/api_client.dart'; // API 클라이언트 추가
-import 'package:renty_client/myPage/profileEdit.dart';
+import 'package:renty_client/myPage/EditProfile/profileEdit.dart';
 import 'package:renty_client/myPage/writeReview.dart';
-import 'package:renty_client/myPage/userInfoEdit.dart'; // 회원 정보 수정 페이지 추가
-import 'package:renty_client/myPage/appInfo.dart'; // 앱 정보 페이지 추가
-import 'package:renty_client/myPage/noticeList.dart'; // 공지사항 페이지 추가가
-import 'package:renty_client/myPage/faqPage.dart'; // FAQ 페이지 추가
-import 'package:renty_client/myPage/inquiryChatbot.dart'; // 1:1 문의 챗봇 페이지 추가
+import 'package:renty_client/myPage/EditProfile/userInfoEdit.dart'; // 회원 정보 수정 페이지 추가
+import 'package:renty_client/myPage/CustomerService/appInfo.dart'; // 앱 정보 페이지 추가
+import 'package:renty_client/myPage/CustomerService/noticeList.dart'; // 공지사항 페이지 추가가
+import 'package:renty_client/myPage/CustomerService/faqPage.dart'; // FAQ 페이지 추가
+import 'package:renty_client/myPage/CustomerService/inquiryChatbot.dart'; // 1:1 문의 챗봇 페이지 추가
 import 'package:renty_client/myPage/incomePage.dart'; // 수익금 페이지 추가
-import 'package:renty_client/myPage/myPostBoard.dart';
+import 'package:renty_client/myPage/MyPost/myPostBoard.dart';
 import 'wish/wishList.dart';
 import 'myRentPage/myRentOut.dart';
 import 'myRentPageBuyer/myRentIn.dart';
