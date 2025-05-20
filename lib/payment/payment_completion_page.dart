@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../chat/chat_list.dart';
 import '../chat/chat.dart';
+import '../myPage/myRentPageBuyer/myRentIn.dart'; // 대여중인 목록 페이지 import
 
 class PaymentCompletionPage extends StatelessWidget {
   final Product product;
@@ -124,14 +125,12 @@ class PaymentCompletionPage extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () {
                       // 마이페이지의 대여중인 제품 화면으로 이동 (메인 Merge시 연결)
-                      // Navigator.push(
-                      //   context,
-                      //   MaterialPageRoute(
-                      //     builder:
-                      //         (context) =>
-                      //             const RentalListPage(showActiveOnly: true),
-                      //   ),
-                      // );
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MyRentInPage(),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3154FF),

@@ -121,6 +121,7 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isLoading = true; // 로딩 상태
   String _callerName = ''; // 현재 발신자(본인) 이름 - 추가
   int _itemId = 0;
+  String? _otherUserProfileImageUrl; // 상대방 프로필 이미지 URL
   DateTime? _productStartDate;
   DateTime? _productEndDate;
   OverlayState? _cachedOverlay;
@@ -561,7 +562,29 @@ class _ChatScreenState extends State<ChatScreen>
         }
 
         // 사용자 정보 업데이트
-        _users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+        final List<dynamic> usersData = data['users'] ?? [];
+        _users = usersData.map<Map<String, dynamic>>((userData) {
+          String? profileImageUrl = userData['profileImageUrl'];
+          // profileImageUrl이 상대 경로이면 전체 URL로 변환
+          if (profileImageUrl != null &&
+              profileImageUrl.isNotEmpty &&
+              !profileImageUrl.startsWith('http') &&
+              !profileImageUrl.startsWith('https')) {
+            profileImageUrl = '${_apiClient.getDomain}$profileImageUrl';
+          }
+          return { ...userData, 'profileImageUrl': profileImageUrl };
+        }).toList();
+
+        // 상대방 프로필 이미지 URL 찾아서 저장
+        if (_users.isNotEmpty && _callerName.isNotEmpty) {
+          final otherUser = _users.firstWhere(
+            (user) => user['name'] != _callerName,
+            orElse: () => {}, // 해당하는 사용자가 없을 경우 빈 Map 반환
+          );
+          setState(() {
+            _otherUserProfileImageUrl = otherUser['profileImageUrl'];
+          });
+        }
 
         // 메시지 처리
         final List<dynamic> messagesData = data['messages'] ?? [];
@@ -643,6 +666,10 @@ class _ChatScreenState extends State<ChatScreen>
             _messages.addAll(newMessages);
             _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
           });
+          // 메시지 로드 및 상태 업데이트 후 스크롤을 맨 아래로 이동
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToBottom();
+          });
         }
 
         // 로딩 상태 업데이트
@@ -668,15 +695,14 @@ class _ChatScreenState extends State<ChatScreen>
 
   // 스크롤을 맨 아래로 이동
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
+    if (_scrollController.hasClients) {
+      // 레이아웃이 완전히 계산될 시간을 주기 위해 작은 지연 시간을 추가
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.jumpTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
         );
-      }
-    });
+      });
+    }
   }
 
   // 검색 모드 토글 함수
@@ -2101,40 +2127,49 @@ class _ChatScreenState extends State<ChatScreen>
 
   // AppBar 구성 함수
   PreferredSizeWidget _buildAppBar() {
+    // 상대방 프로필 이미지 URL 찾기
+    String? otherUserProfileImageUrl;
+    if (_users.isNotEmpty && _callerName.isNotEmpty) {
+      final otherUser = _users.firstWhere(
+        (user) => user['name'] != _callerName,
+        orElse: () => {}, // 해당하는 사용자가 없을 경우 빈 Map 반환
+      );
+      otherUserProfileImageUrl = otherUser?['profileImageUrl'];
+    }
+
     // 검색 모드일 때 검색 AppBar 표시
     if (_isSearchMode) {
       return AppBar(
         backgroundColor: Colors.white,
         elevation: .2,
         titleSpacing: 0,
+        // 뒤로가기 버튼
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: _toggleSearchMode, // 검색 모드 종료
         ),
+        // 검색 입력 필드
         title: TextField(
           controller: _searchController,
           decoration: const InputDecoration(
             hintText: '검색어를 입력하세요',
             border: InputBorder.none,
           ),
-          onChanged: _performSearch, // 텍스트 변경 시 검색 실행
+          onChanged: _performSearch, // 텍스트 변경 시 검색 실행 (디바운스 포함)
           autofocus: true, // 검색 모드 진입 시 자동 포커스
         ),
+        // 검색 관련 액션 버튼
         actions: [
           // 검색 결과 정보 표시
           if (_searchResults.isNotEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  '${_currentSearchIndex + 1}/${_searchResults.length}',
-                  style: const TextStyle(color: Colors.black, fontSize: 14),
-                ),
+                child: Text('${_currentSearchIndex + 1}/${_searchResults.length}',
+                    style: const TextStyle(color: Colors.black, fontSize: 14)),
               ),
             ),
-
           // 위 화살표 버튼 (이전/과거 메시지)
-          if (_searchController.text.isNotEmpty)
             IconButton(
               icon: Icon(
                 Icons.arrow_downward,
@@ -2153,7 +2188,6 @@ class _ChatScreenState extends State<ChatScreen>
             ),
 
           // 아래 화살표 버튼 (다음/최신 메시지)
-          if (_searchController.text.isNotEmpty)
             IconButton(
               icon: Icon(
                 Icons.arrow_upward,
@@ -2169,7 +2203,6 @@ class _ChatScreenState extends State<ChatScreen>
               tooltip: '다음 메시지로 이동',
             ),
 
-          // 검색어 지우기 버튼
           if (_searchController.text.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.clear, color: Colors.grey),
@@ -2181,30 +2214,27 @@ class _ChatScreenState extends State<ChatScreen>
         ],
       );
     }
-
     // 일반 AppBar
     return AppBar(
       backgroundColor: Colors.white, // 앱바 배경색
       elevation: 0, // 그림자 제거
       // 뒤로가기 버튼
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
-        onPressed: () {
-          Navigator.pop(context); // 이전 화면으로 돌아가기
-        },
-      ),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.pop(context); // 이전 화면으로 돌아가기
+          }),
       // 채팅 상대방 정보 표시
       title: Row(
         children: [
           // 프로필 아바타
           CircleAvatar(
             backgroundColor: Colors.grey[300],
-            backgroundImage:
-                widget.profileImageUrl != null
-                    ? NetworkImage(widget.profileImageUrl!)
+            backgroundImage: otherUserProfileImageUrl != null
+                    ? NetworkImage(otherUserProfileImageUrl)
                     : null,
             child:
-                widget.profileImageUrl == null
+                widget.roomName.isNotEmpty && otherUserProfileImageUrl == null // 이미지가 없을 경우 이니셜 표시
                     ? Text(
                       widget.roomName.isNotEmpty
                           ? widget.roomName[0]
@@ -2770,22 +2800,22 @@ class _ChatScreenState extends State<ChatScreen>
         children: [
           // 상대방 메시지인 경우 프로필 아바타 또는 빈 공간
           if (!message.isMe) ...[
-            if (showProfile)
+            if (showProfile) ...[ // 프로필 이미지를 표시하는 첫 메시지인 경우
               CircleAvatar(
                 backgroundColor: Colors.grey[300],
-                radius: 15, // 작은 크기로 설정
-                child: Text(
-                  widget.roomName.isNotEmpty
-                      ? widget.roomName[0]
-                      : "?", // 상대방 이니셜
-                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                ),
-              )
-            else
-              SizedBox(width: 30), // CircleAvatar의 너비(30) + 간격(8)과 동일한 공간
-            const SizedBox(width: 8), // 아바타와 메시지 사이 간격
+                radius: 15, // 작은 크기로 설정 (지름 30)
+                // _otherUserProfileImageUrl이 있으면 NetworkImage 사용, 없으면 이니셜 사용
+                backgroundImage: _otherUserProfileImageUrl != null ? NetworkImage(_otherUserProfileImageUrl!) : null,
+                child: _otherUserProfileImageUrl == null && widget.roomName.isNotEmpty ? Text(widget.roomName[0], style: TextStyle(color: Colors.grey[700], fontSize: 12)) : null,
+              ), // CircleAvatar 닫는 괄호
+              const SizedBox(width: 4), // 프로필 이미지와 메시지 사이의 간격 (4픽셀로 줄임)
+            ] else ...[ // 프로필 이미지를 표시하지 않는 나머지 메시지인 경우
+              // 프로필 이미지 (30) + 간격 (4) 만큼의 공간 확보
+              const SizedBox(width: 34),
+            ],
           ],
 
+          // 내 메시지의 경우 왼쪽에 시간 표시 (상대방 메시지에는 표시되지 않음)
           // 내 메시지의 경우 왼쪽에 시간 표시
           if (message.isMe && showTimestamp)
             Padding(
