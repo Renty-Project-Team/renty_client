@@ -87,7 +87,7 @@ class ChatScreen extends StatefulWidget {
   final String roomName; // 채팅방 이름(상대방 이름)
   final String? profileImageUrl; // 상대방 프로필 이미지 URL
   final Product? product; // 상품 정보 (선택적)
-  final bool isBuyer; // 구매자 여부 추가 (true: 구매자, false: 판매자)
+  final bool isBuyer; // 대여자 여부 추가 (true: 대여자, false: 판매자)
 
   const ChatScreen({
     super.key,
@@ -95,7 +95,7 @@ class ChatScreen extends StatefulWidget {
     required this.roomName,
     this.profileImageUrl,
     this.product,
-    this.isBuyer = true, // 기본값은 구매자로 설정
+    this.isBuyer = true, // 기본값은 대여자로 설정
   });
 
   @override
@@ -1580,7 +1580,7 @@ class _ChatScreenState extends State<ChatScreen>
                                         print('DEBUG: 상품 수정 - 전송될 버전: $_tradeOfferVersion');
                                         print('DEBUG: 상품 수정 - 현재 채팅방 버전: $_tradeOfferVersion');
 
-                                        // 구매자 이름 찾기 (채팅방의 상대방)
+                                        // 대여자 이름 찾기 (채팅방의 상대방)
                                         String buyerName = '';
                                         for (var user in _users) {
                                           if (user['name'] != _callerName) {
@@ -2349,8 +2349,8 @@ class _ChatScreenState extends State<ChatScreen>
             onPressed:
                 _isSeller
                     ? _showProductEditModal // 판매자는 상품 수정 모달 표시
-                    : () async { // 구매자는 '구매하기' 버튼 기능
-                        // 구매하기 버튼 클릭 시 최신 버전 정보 가져오기
+                    : () async { // 대여자는 '대여하기' 버튼 기능
+                        // 대여하기 버튼 클릭 시 최신 버전 정보 가져오기
                         try {
                           final response = await _apiClient.client.get(
                             '/chat/Room',
@@ -2362,15 +2362,15 @@ class _ChatScreenState extends State<ChatScreen>
                             if (data['offer'] != null) {
                               final serverVersion = data['offer']['version'] ?? 0;
                               _tradeOfferVersion = serverVersion;
-                              print('DEBUG: 구매하기 버튼 클릭 - 최신 버전 정보 업데이트: $_tradeOfferVersion');
+                              print('DEBUG: 대여하기 버튼 클릭 - 최신 버전 정보 업데이트: $_tradeOfferVersion');
                             }
                           }
                         } catch (e) {
                           print('DEBUG: 버전 정보 업데이트 실패: $e');
                         }
 
-                        // 구매하기 버튼 클릭 시 버전 정보 로깅
-                        print('==== 구매하기 버튼 클릭 ====');
+                        // 대여하기 버튼 클릭 시 버전 정보 로깅
+                        print('==== 대여하기 버튼 클릭 ====');
                         print('현재 상품 버전: $_tradeOfferVersion');
 
                         final tradeButtonService = TradeButtonService();
@@ -2392,7 +2392,7 @@ class _ChatScreenState extends State<ChatScreen>
               ),
               fixedSize: const Size(90, 30),
             ),
-            child: Text(_isSeller ? '상품수정' : '구매하기'),
+            child: Text(_isSeller ? '상품수정' : '대여여하기'),
           ),
         ],
       ),
