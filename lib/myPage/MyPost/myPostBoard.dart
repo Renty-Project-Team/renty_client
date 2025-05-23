@@ -4,7 +4,7 @@ import 'package:renty_client/core/api_client.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/detailed_post/detailPost.dart';
 import 'package:renty_client/post/AdBoard.dart';
-import 'package:renty_client/mypage/myPostService.dart';
+import 'myPostService.dart';
 import 'package:renty_client/post/postDataFile.dart';
 import 'package:renty_client/windowClickEvent/scrollEvent.dart';
 import 'package:intl/intl.dart';

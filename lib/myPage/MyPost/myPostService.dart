@@ -1,4 +1,4 @@
-import '../post/postDataFile.dart';
+import '../../post/postDataFile.dart';
 import 'package:renty_client/core/api_client.dart';
 import 'dart:convert';
 

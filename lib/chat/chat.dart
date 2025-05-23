@@ -87,7 +87,7 @@ class ChatScreen extends StatefulWidget {
   final String roomName; // 채팅방 이름(상대방 이름)
   final String? profileImageUrl; // 상대방 프로필 이미지 URL
   final Product? product; // 상품 정보 (선택적)
-  final bool isBuyer; // 구매자 여부 추가 (true: 구매자, false: 판매자)
+  final bool isBuyer; // 대여자 여부 추가 (true: 대여자, false: 판매자)
 
   const ChatScreen({
     super.key,
@@ -95,7 +95,7 @@ class ChatScreen extends StatefulWidget {
     required this.roomName,
     this.profileImageUrl,
     this.product,
-    this.isBuyer = true, // 기본값은 구매자로 설정
+    this.isBuyer = true, // 기본값은 대여자로 설정
   });
 
   @override
@@ -121,6 +121,7 @@ class _ChatScreenState extends State<ChatScreen>
   bool _isLoading = true; // 로딩 상태
   String _callerName = ''; // 현재 발신자(본인) 이름 - 추가
   int _itemId = 0;
+  String? _otherUserProfileImageUrl; // 상대방 프로필 이미지 URL
   DateTime? _productStartDate;
   DateTime? _productEndDate;
   OverlayState? _cachedOverlay;
@@ -351,9 +352,15 @@ class _ChatScreenState extends State<ChatScreen>
     final offerData = data['offer'];
     if (offerData == null) return;
 
-    // 버전 정보 업데이트
-    _tradeOfferVersion = offerData['version'] ?? _tradeOfferVersion;
-    print('DEBUG: 상품 정보 업데이트 알림 수신 - 새로운 버전: $_tradeOfferVersion');
+    // 버전 정보 업데이트 - 서버에서 받은 버전으로 직접 업데이트
+    final newVersion = offerData['version'] ?? 0;
+    if (newVersion > _tradeOfferVersion) {
+      _tradeOfferVersion = newVersion;
+      print('DEBUG: 상품 정보 업데이트 알림 수신 - 새로운 버전: $_tradeOfferVersion');
+    } else {
+      print('DEBUG: 현재 버전이 더 높거나 같음 - 현재: $_tradeOfferVersion, 수신: $newVersion');
+      return; // 현재 버전이 더 높거나 같으면 업데이트 중단
+    }
 
     // 이미지 URL 처리
     String? fullImageUrl;
@@ -422,14 +429,8 @@ class _ChatScreenState extends State<ChatScreen>
             'price': _formatPrice(_product.price),
             'priceUnit': _convertPriceUnitToKorean(_product.priceUnit),
             'deposit': _formatPrice(_product.deposit),
-            'startDate':
-                startDate != null
-                    ? DateFormat('yyyy-MM-dd').format(startDate)
-                    : null,
-            'endDate':
-                endDate != null
-                    ? DateFormat('yyyy-MM-dd').format(endDate)
-                    : null,
+            'startDate': startDate != null ? DateFormat('yyyy-MM-dd').format(startDate) : null,
+            'endDate': endDate != null ? DateFormat('yyyy-MM-dd').format(endDate) : null,
             'imageUrl': fullImageUrl,
           },
           status: 'sent',
@@ -561,7 +562,29 @@ class _ChatScreenState extends State<ChatScreen>
         }
 
         // 사용자 정보 업데이트
-        _users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+        final List<dynamic> usersData = data['users'] ?? [];
+        _users = usersData.map<Map<String, dynamic>>((userData) {
+          String? profileImageUrl = userData['profileImageUrl'];
+          // profileImageUrl이 상대 경로이면 전체 URL로 변환
+          if (profileImageUrl != null &&
+              profileImageUrl.isNotEmpty &&
+              !profileImageUrl.startsWith('http') &&
+              !profileImageUrl.startsWith('https')) {
+            profileImageUrl = '${_apiClient.getDomain}$profileImageUrl';
+          }
+          return { ...userData, 'profileImageUrl': profileImageUrl };
+        }).toList();
+
+        // 상대방 프로필 이미지 URL 찾아서 저장
+        if (_users.isNotEmpty && _callerName.isNotEmpty) {
+          final otherUser = _users.firstWhere(
+            (user) => user['name'] != _callerName,
+            orElse: () => {}, // 해당하는 사용자가 없을 경우 빈 Map 반환
+          );
+          setState(() {
+            _otherUserProfileImageUrl = otherUser['profileImageUrl'];
+          });
+        }
 
         // 메시지 처리
         final List<dynamic> messagesData = data['messages'] ?? [];
@@ -643,6 +666,10 @@ class _ChatScreenState extends State<ChatScreen>
             _messages.addAll(newMessages);
             _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
           });
+          // 메시지 로드 및 상태 업데이트 후 스크롤을 맨 아래로 이동
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToBottom();
+          });
         }
 
         // 로딩 상태 업데이트
@@ -668,15 +695,14 @@ class _ChatScreenState extends State<ChatScreen>
 
   // 스크롤을 맨 아래로 이동
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
+    if (_scrollController.hasClients) {
+      // 레이아웃이 완전히 계산될 시간을 주기 위해 작은 지연 시간을 추가
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.jumpTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
         );
-      }
-    });
+      });
+    }
   }
 
   // 검색 모드 토글 함수
@@ -927,15 +953,12 @@ class _ChatScreenState extends State<ChatScreen>
 
   // 상품 수정 모달 표시 함수
   void _showProductEditModal() {
-    // 상품 정보 로드하여 최신 버전 가져오기 - 모달 열 때 이미 최신 버전이 로드되어 있어야 함
-    // _loadProductInfo(); // 주석 처리 또는 제거
-    
     // 현재 상품 정보를 수정할 임시 변수
     String title = _product.title;
     String price = _product.price;
     String deposit = _product.deposit;
 
-    // 버전 증가 로직 제거 - 서버 또는 알림으로 버전 업데이트를 받음
+    // 버전 증가
     // _tradeOfferVersion += 1;
     // print('==== 상품 수정 시작 ====');
     // print('수정 전 버전: ${_tradeOfferVersion - 1}');
@@ -1553,7 +1576,11 @@ class _ChatScreenState extends State<ChatScreen>
 
                                         Navigator.of(context).pop(); // 먼저 모달 닫기
 
-                                        // 구매자 이름 찾기 (채팅방의 상대방)
+                                        // 디버깅: 전송될 버전과 현재 채팅방 버전 출력
+                                        print('DEBUG: 상품 수정 - 전송될 버전: $_tradeOfferVersion');
+                                        print('DEBUG: 상품 수정 - 현재 채팅방 버전: $_tradeOfferVersion');
+
+                                        // 대여자 이름 찾기 (채팅방의 상대방)
                                         String buyerName = '';
                                         for (var user in _users) {
                                           if (user['name'] != _callerName) {
@@ -1636,7 +1663,7 @@ class _ChatScreenState extends State<ChatScreen>
                                           buyerName: buyerName,
                                           borrowStartAt: startDateStr,
                                           returnAt: endDateStr,
-                                          tradeOfferVersion: _tradeOfferVersion, // 현재 버전 사용
+                                          tradeOfferVersion: _tradeOfferVersion, // '수정하기' 버튼 클릭 시점의 최신 버전 사용
                                           onSuccess: (message) {
                                             if (!mounted || _isDisposed) return;
 
@@ -2101,40 +2128,49 @@ class _ChatScreenState extends State<ChatScreen>
 
   // AppBar 구성 함수
   PreferredSizeWidget _buildAppBar() {
+    // 상대방 프로필 이미지 URL 찾기
+    String? otherUserProfileImageUrl;
+    if (_users.isNotEmpty && _callerName.isNotEmpty) {
+      final otherUser = _users.firstWhere(
+        (user) => user['name'] != _callerName,
+        orElse: () => {}, // 해당하는 사용자가 없을 경우 빈 Map 반환
+      );
+      otherUserProfileImageUrl = otherUser?['profileImageUrl'];
+    }
+
     // 검색 모드일 때 검색 AppBar 표시
     if (_isSearchMode) {
       return AppBar(
         backgroundColor: Colors.white,
         elevation: .2,
         titleSpacing: 0,
+        // 뒤로가기 버튼
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: _toggleSearchMode, // 검색 모드 종료
         ),
+        // 검색 입력 필드
         title: TextField(
           controller: _searchController,
           decoration: const InputDecoration(
             hintText: '검색어를 입력하세요',
             border: InputBorder.none,
           ),
-          onChanged: _performSearch, // 텍스트 변경 시 검색 실행
+          onChanged: _performSearch, // 텍스트 변경 시 검색 실행 (디바운스 포함)
           autofocus: true, // 검색 모드 진입 시 자동 포커스
         ),
+        // 검색 관련 액션 버튼
         actions: [
           // 검색 결과 정보 표시
           if (_searchResults.isNotEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  '${_currentSearchIndex + 1}/${_searchResults.length}',
-                  style: const TextStyle(color: Colors.black, fontSize: 14),
-                ),
+                child: Text('${_currentSearchIndex + 1}/${_searchResults.length}',
+                    style: const TextStyle(color: Colors.black, fontSize: 14)),
               ),
             ),
-
           // 위 화살표 버튼 (이전/과거 메시지)
-          if (_searchController.text.isNotEmpty)
             IconButton(
               icon: Icon(
                 Icons.arrow_downward,
@@ -2153,7 +2189,6 @@ class _ChatScreenState extends State<ChatScreen>
             ),
 
           // 아래 화살표 버튼 (다음/최신 메시지)
-          if (_searchController.text.isNotEmpty)
             IconButton(
               icon: Icon(
                 Icons.arrow_upward,
@@ -2169,7 +2204,6 @@ class _ChatScreenState extends State<ChatScreen>
               tooltip: '다음 메시지로 이동',
             ),
 
-          // 검색어 지우기 버튼
           if (_searchController.text.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.clear, color: Colors.grey),
@@ -2181,30 +2215,27 @@ class _ChatScreenState extends State<ChatScreen>
         ],
       );
     }
-
     // 일반 AppBar
     return AppBar(
       backgroundColor: Colors.white, // 앱바 배경색
       elevation: 0, // 그림자 제거
       // 뒤로가기 버튼
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
-        onPressed: () {
-          Navigator.pop(context); // 이전 화면으로 돌아가기
-        },
-      ),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.pop(context); // 이전 화면으로 돌아가기
+          }),
       // 채팅 상대방 정보 표시
       title: Row(
         children: [
           // 프로필 아바타
           CircleAvatar(
             backgroundColor: Colors.grey[300],
-            backgroundImage:
-                widget.profileImageUrl != null
-                    ? NetworkImage(widget.profileImageUrl!)
+            backgroundImage: otherUserProfileImageUrl != null
+                    ? NetworkImage(otherUserProfileImageUrl)
                     : null,
             child:
-                widget.profileImageUrl == null
+                widget.roomName.isNotEmpty && otherUserProfileImageUrl == null // 이미지가 없을 경우 이니셜 표시
                     ? Text(
                       widget.roomName.isNotEmpty
                           ? widget.roomName[0]
@@ -2317,10 +2348,29 @@ class _ChatScreenState extends State<ChatScreen>
           TextButton(
             onPressed:
                 _isSeller
-                    ? _showProductEditModal
-                    : () {
-                        // 구매하기 버튼 클릭 시 버전 정보 로깅
-                        print('==== 구매하기 버튼 클릭 ====');
+                    ? _showProductEditModal // 판매자는 상품 수정 모달 표시
+                    : () async { // 대여자는 '대여하기' 버튼 기능
+                        // 대여하기 버튼 클릭 시 최신 버전 정보 가져오기
+                        try {
+                          final response = await _apiClient.client.get(
+                            '/chat/Room',
+                            queryParameters: {'roomId': widget.chatRoomId},
+                          );
+
+                          if (response.statusCode == 200) {
+                            final data = response.data;
+                            if (data['offer'] != null) {
+                              final serverVersion = data['offer']['version'] ?? 0;
+                              _tradeOfferVersion = serverVersion;
+                              print('DEBUG: 대여하기 버튼 클릭 - 최신 버전 정보 업데이트: $_tradeOfferVersion');
+                            }
+                          }
+                        } catch (e) {
+                          print('DEBUG: 버전 정보 업데이트 실패: $e');
+                        }
+
+                        // 대여하기 버튼 클릭 시 버전 정보 로깅
+                        print('==== 대여하기 버튼 클릭 ====');
                         print('현재 상품 버전: $_tradeOfferVersion');
 
                         final tradeButtonService = TradeButtonService();
@@ -2331,7 +2381,7 @@ class _ChatScreenState extends State<ChatScreen>
                           _itemId,
                           startDate: _productStartDate,
                           endDate: _productEndDate,
-                          tradeOfferVersion: _tradeOfferVersion, // 현재 버전 사용
+                          tradeOfferVersion: _tradeOfferVersion, // 업데이트된 버전 사용
                         );
                       },
             style: TextButton.styleFrom(
@@ -2342,7 +2392,7 @@ class _ChatScreenState extends State<ChatScreen>
               ),
               fixedSize: const Size(90, 30),
             ),
-            child: Text(_isSeller ? '상품수정' : '구매하기'),
+            child: Text(_isSeller ? '상품수정' : '대여여하기'),
           ),
         ],
       ),
@@ -2770,22 +2820,22 @@ class _ChatScreenState extends State<ChatScreen>
         children: [
           // 상대방 메시지인 경우 프로필 아바타 또는 빈 공간
           if (!message.isMe) ...[
-            if (showProfile)
+            if (showProfile) ...[ // 프로필 이미지를 표시하는 첫 메시지인 경우
               CircleAvatar(
                 backgroundColor: Colors.grey[300],
-                radius: 15, // 작은 크기로 설정
-                child: Text(
-                  widget.roomName.isNotEmpty
-                      ? widget.roomName[0]
-                      : "?", // 상대방 이니셜
-                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                ),
-              )
-            else
-              SizedBox(width: 30), // CircleAvatar의 너비(30) + 간격(8)과 동일한 공간
-            const SizedBox(width: 8), // 아바타와 메시지 사이 간격
+                radius: 15, // 작은 크기로 설정 (지름 30)
+                // _otherUserProfileImageUrl이 있으면 NetworkImage 사용, 없으면 이니셜 사용
+                backgroundImage: _otherUserProfileImageUrl != null ? NetworkImage(_otherUserProfileImageUrl!) : null,
+                child: _otherUserProfileImageUrl == null && widget.roomName.isNotEmpty ? Text(widget.roomName[0], style: TextStyle(color: Colors.grey[700], fontSize: 12)) : null,
+              ), // CircleAvatar 닫는 괄호
+              const SizedBox(width: 4), // 프로필 이미지와 메시지 사이의 간격 (4픽셀로 줄임)
+            ] else ...[ // 프로필 이미지를 표시하지 않는 나머지 메시지인 경우
+              // 프로필 이미지 (30) + 간격 (4) 만큼의 공간 확보
+              const SizedBox(width: 34),
+            ],
           ],
 
+          // 내 메시지의 경우 왼쪽에 시간 표시 (상대방 메시지에는 표시되지 않음)
           // 내 메시지의 경우 왼쪽에 시간 표시
           if (message.isMe && showTimestamp)
             Padding(
@@ -3043,38 +3093,6 @@ class _ChatScreenState extends State<ChatScreen>
     _cachedOverlay = null; // 캐시된 오버레이 참조만 정리
 
     super.dispose();
-  }
-
-  Future<void> _loadProductInfo() async {
-    try {
-      print('==== 상품 정보 로딩 시작 ====');
-      print('상품 ID: $_itemId');
-      print('현재 버전: $_tradeOfferVersion');
-      
-      final response = await _apiClient.client.get('/Item/$_itemId');
-      print('상품 정보 응답: ${response.data}');
-      
-      if (response.statusCode == 200) {
-        final data = response.data;
-        final newVersion = data['version'] ?? 0;
-        print('서버의 최신 버전: $newVersion');
-        print('현재 클라이언트 버전: $_tradeOfferVersion');
-        
-        setState(() {
-          _product = Product(
-            title: data['title'] ?? '',
-            price: data['price']?.toString() ?? '0',
-            priceUnit: data['priceUnit'] ?? '일',
-            deposit: data['deposit']?.toString() ?? '0',
-            imageUrl: data['imageUrl'],
-          );
-          _tradeOfferVersion = newVersion;
-          print('상품 정보 로딩 완료 - 새로운 버전: $_tradeOfferVersion');
-        });
-      }
-    } catch (e) {
-      print('상품 정보 로딩 실패: $e');
-    }
   }
 }
 

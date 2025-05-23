@@ -46,7 +46,7 @@ class PaymentService {
 
       if (response.statusCode == 200) {
         onSuccess('결제가 성공적으로 완료되었습니다.');
-        return response.data;
+        return response.data; // 정상적인 Map 타입 반환
       } else {
         onError('결제 처리 중 오류가 발생했습니다. (${response.statusCode})');
         return {};
@@ -106,7 +106,7 @@ class PaymentService {
           // 오류 메시지 파싱 실패 시 기본 메시지 유지
         }
 
-        // 결제 실패 페이지로 이동
+        // 결제 실패 페이지로 이동 후 빈 객체 반환
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -124,13 +124,13 @@ class PaymentService {
                 ),
           ),
         );
+        return {}; // 빈 Map 반환
       } else {
         onError('결제 요청 중 오류가 발생했습니다: ${e.message}');
       }
-      return {};
+      return {}; // 빈 Map 반환
     } catch (e) {
-      onError('결제 처리 중 예상치 못한 오류가 발생했습니다: $e');
-      return {};
+      return {}; // 빈 Map 반환
     }
   }
 }
