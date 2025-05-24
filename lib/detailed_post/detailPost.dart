@@ -7,6 +7,7 @@ import '../core/api_client.dart';
 import 'productService.dart';
 import 'productDataFile.dart';
 import 'package:renty_client/windowClickEvent/dragEvent.dart'; // 드래그 wrapper 임포트
+import 'package:intl/intl.dart';
 
 class DetailPage extends StatefulWidget {
   final int itemId;
@@ -282,7 +283,7 @@ class _DetailPageState extends State<DetailPage> {
                                 Spacer(),
                                 Text("대여 가격: ${product.priceUnit} ",
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                Text("${product.price.toInt()} 원",
+                                Text("${NumberFormat("#,###").format(product.price.toInt())} 원",
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                               ],
                             ),
@@ -292,7 +293,7 @@ class _DetailPageState extends State<DetailPage> {
                                 Spacer(),
                                 Text("보증금: ",
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                Text("${product.securityDeposit.toInt()} 원",
+                                Text("${NumberFormat("#,###").format(product.securityDeposit.toInt())} 원",
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                               ],
                             ),

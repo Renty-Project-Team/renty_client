@@ -14,53 +14,56 @@ class SearchCategories extends StatelessWidget {  //아이콘 출가 할거 있�
     {'icon': Icons.pets, 'label': '반려동물 용품'},
     {'icon': Icons.local_hospital, 'label': '건강 및 의료'},
     {'icon': Icons.hiking, 'label': '취미 및 여가'},
-  ];
-
-  @override
+  ];@override
   Widget build(BuildContext context) {
     return Column(
-      //분리선
-        children: [
-          Divider(
-            thickness: 1,
-            height: 1,
-            color: Colors.grey[300],
-          ),
-      // 카테고리 영역
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(15.0),
-              child: GridView.builder(
-                itemCount: categories.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 5,
-                  mainAxisSpacing: 12,
-                ),
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  return GestureDetector(
-                    onTap: () {
-                      print("클릭한 카테고리: ${category['label']}");
-                    },
+      children: [
+        Divider(
+          thickness: 1,
+          height: 1,
+          color: Colors.grey[300],
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(15.0),
+            child: GridView.builder(
+              itemCount: categories.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 5,
+                mainAxisSpacing: 12,
+              ),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                return GestureDetector(
+                  onTap: () {
+                    print("클릭한 카테고리: ${category['label']}");
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.transparent, // 시각적으로는 투명하지만 터치 가능
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                      Icon(category['icon'], size: 35),
-                      SizedBox(height: 8),
+                        Icon(category['icon'], size: 35),
+                        const SizedBox(height: 5),
                         Text(
                           category['label'],
-                          style: TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
-        ],
+        ),
+      ],
     );
   }
 }

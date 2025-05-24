@@ -22,11 +22,14 @@ class RentOutService {
     }
   }
 
-  static Future<Map<String, dynamic>?> createOrGetChatRoom(int itemId) async {
+  static Future<Map<String, dynamic>?> createOrGetChatRoom(int itemId, String buyerName) async {
     try {
       final response = await ApiClient().client.post(
         '/chat/Create_by_seller',
-        data: {'itemId': itemId},
+        data: {
+          'itemId': itemId,
+          'buyerName': buyerName
+        },
       );
       if (response.statusCode == 200) {
         return response.data;

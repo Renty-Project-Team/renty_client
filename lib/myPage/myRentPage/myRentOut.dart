@@ -113,12 +113,12 @@ class _MyRentOutPageState extends State<MyRentOutPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              "상품금액: ${(item.finalPrice).toInt()}원",
+                              "상품금액: ${NumberFormat("#,###").format((item.finalPrice).toInt())}원",
                               style: const TextStyle(fontSize: 14,color:Colors.black54),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "보증금: ${(item.finalSecurityDeposit).toInt()}원",
+                              "보증금: ${NumberFormat("#,###").format((item.finalSecurityDeposit).toInt())}원",
                               style: const TextStyle(fontSize: 14,color:Colors.black54),
                             ),
                           ],
@@ -137,7 +137,7 @@ class _MyRentOutPageState extends State<MyRentOutPage> {
                           int? chatRoomId = item.roomId;
 
                           if (chatRoomId == null) {
-                            final chatRoom = await RentOutService.createOrGetChatRoom(item.itemId);
+                            final chatRoom = await RentOutService.createOrGetChatRoom(item.itemId,item.buyerName ?? '알수없음');
                             if (chatRoom != null) {
                               chatRoomId = chatRoom['chatRoomId'];
                             }
