@@ -190,13 +190,14 @@ class _SearchResultPageState extends State<SearchResultPage> {
                           },
                           child: Container(
                             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: isSelected
-                                ? BoxDecoration(
-                              border: Border(
+                            decoration: BoxDecoration(
+                              color: Colors.transparent, // 이걸로 color 설정
+                              border: isSelected
+                                  ? Border(
                                 bottom: BorderSide(width: 2, color: Colors.blue),
-                              ),
-                            )
-                                : null,
+                              )
+                                  : null,
+                            ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [

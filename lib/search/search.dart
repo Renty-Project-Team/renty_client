@@ -96,17 +96,24 @@ class _SearchPageState extends State<SearchPage> {
                         ),
                       );
                     },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(category['icon'], size: 35),
-                        const SizedBox(height: 8),
-                        Text(
-                          category['kor'],
-                          style: const TextStyle(fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(category['icon'], size: 35),
+                          const SizedBox(height: 8),
+                          Text(
+                            category['kor'],
+                            style: const TextStyle(fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },

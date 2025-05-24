@@ -5,7 +5,8 @@ import 'AdBoard.dart';
 import 'package:renty_client/detailed_post/detailPost.dart';
 import 'postService.dart';
 import 'postDataFile.dart';
-import 'package:renty_client/windowClickEvent/scrollEvent.dart'; // 추가된 import
+import 'package:renty_client/windowClickEvent/scrollEvent.dart';
+import 'package:intl/intl.dart';
 
 class ProductListPage extends StatefulWidget {
   @override
@@ -174,12 +175,12 @@ class ProductCard extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      "${product.priceUnit} ${product.price.toInt()}원",
+                      "${product.priceUnit} ${NumberFormat("#,###").format(product.price.toInt())}원",
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: 4),
                     Text(
-                      "보증금: ${product.deposit.toInt()}원",
+                      "보증금: ${NumberFormat("#,###").format(product.deposit.toInt())}원",
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],

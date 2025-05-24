@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:renty_client/main.dart';
 import 'myRentInService.dart';
 import 'package:renty_client/mypage/myRentPage/myRantOutData.dart';
-import 'package:renty_client/mypage/myRentPage/RentOutDetail.dart';
+import 'RentInDetail.dart';
 import 'package:renty_client/chat/chat.dart';
 
 class MyRentInPage extends StatefulWidget {
@@ -113,12 +113,12 @@ class _MyRentInPageState extends State<MyRentInPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              "상품금액: ${(item.finalPrice).toInt()}원",
+                              "상품금액: ${NumberFormat("#,###").format((item.finalPrice).toInt())}원",
                               style: const TextStyle(fontSize: 14,color:Colors.black54),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              "보증금: ${(item.finalSecurityDeposit).toInt()}원",
+                              "보증금: ${NumberFormat("#,###").format((item.finalSecurityDeposit).toInt())}원",
                               style: const TextStyle(fontSize: 14,color:Colors.black54),
                             ),
                           ],
@@ -171,7 +171,7 @@ class _MyRentInPageState extends State<MyRentInPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => RentOutDetailPage(item: item),
+                              builder: (_) => RentInDetailPage(item: item),
                             ),
                           );
                         },

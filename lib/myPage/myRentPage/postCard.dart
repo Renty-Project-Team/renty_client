@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:renty_client/core/api_client.dart';
 import 'package:renty_client/main.dart';
 import 'myRantOutData.dart';
+import 'package:intl/intl.dart';
 
 class ProductCardByItemId extends StatelessWidget {
   final RentOutItem item;
@@ -46,7 +47,7 @@ class ProductCardByItemId extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "가격: ${item.price.toStringAsFixed(0)}원 / ${item.priceUnit}",
+                  "가격: ${NumberFormat("#,###").format(item.price.toInt())}원 / ${item.priceUnit}",
                   style: const TextStyle(color: Colors.black54),
                 ),
               ],
