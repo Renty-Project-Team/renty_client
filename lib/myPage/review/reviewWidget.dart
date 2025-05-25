@@ -23,14 +23,28 @@ class ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String baseDomain = apiClient.getDomain;
 
-    // 프로필 이미지 URL 처리
+    // 프로필 이미지 URL 처리 - 작성자/구매자에 따라 다르게
     String? fullProfileImageUrl;
-    if (review.sellerProfileImageUrl != null &&
-        review.sellerProfileImageUrl!.isNotEmpty) {
-      if (review.sellerProfileImageUrl!.startsWith('http')) {
-        fullProfileImageUrl = review.sellerProfileImageUrl;
-      } else {
-        fullProfileImageUrl = '$baseDomain${review.sellerProfileImageUrl}';
+
+    if (isMyReview) {
+      // 내가 작성한 리뷰인 경우 - 구매자(나)의 프로필 표시
+      if (review.sellerProfileImageUrl != null &&
+          review.sellerProfileImageUrl!.isNotEmpty) {
+        if (review.sellerProfileImageUrl!.startsWith('http')) {
+          fullProfileImageUrl = review.sellerProfileImageUrl;
+        } else {
+          fullProfileImageUrl = '$baseDomain${review.sellerProfileImageUrl}';
+        }
+      }
+    } else {
+      // 받은 리뷰인 경우 - 구매자(리뷰 작성자)의 프로필 표시
+      if (review.buyerProfileImageUrl != null &&
+          review.buyerProfileImageUrl!.isNotEmpty) {
+        if (review.buyerProfileImageUrl!.startsWith('http')) {
+          fullProfileImageUrl = review.buyerProfileImageUrl;
+        } else {
+          fullProfileImageUrl = '$baseDomain${review.buyerProfileImageUrl}';
+        }
       }
     }
 
@@ -103,8 +117,12 @@ class ReviewCard extends StatelessWidget {
                             child:
                                 fullProfileImageUrl == null
                                     ? Text(
-                                      review.sellerName.isNotEmpty
-                                          ? review.sellerName[0]
+                                      isMyReview
+                                          ? review.buyerName.isNotEmpty
+                                              ? review.buyerName[0]
+                                              : "?"
+                                          : review.buyerName.isNotEmpty
+                                          ? review.buyerName[0]
                                           : "?",
                                       style: TextStyle(color: Colors.grey[700]),
                                     )
@@ -115,7 +133,7 @@ class ReviewCard extends StatelessWidget {
                             child: Text(
                               isMyReview
                                   ? '${review.sellerName}님에게 보낸 리뷰'
-                                  : '${review.sellerName}님에게서 받은 리뷰',
+                                  : '${review.buyerName}님에게서 받은 리뷰',
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey,

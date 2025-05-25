@@ -93,6 +93,7 @@ class _ReceivedReviewsPageState extends State<ReceivedReviewsPage> {
                 apiClient: _apiClient,
                 isMyReview: false,
                 currentUserName: widget.currentUserName,
+                // 구매자 프로필 이미지 관련 로직은 ReviewCard 내에서 처리
               );
             },
           );

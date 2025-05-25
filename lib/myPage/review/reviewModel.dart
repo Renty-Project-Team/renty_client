@@ -8,6 +8,7 @@ class ReviewModel {
   final String sellerName;
   final String? sellerProfileImageUrl;
   final String buyerName;
+  final String? buyerProfileImageUrl; // 구매자 프로필 이미지 추가
   final int satisfaction;
   final String content;
   final String sellerEvaluation;
@@ -22,6 +23,7 @@ class ReviewModel {
     required this.sellerName,
     this.sellerProfileImageUrl,
     required this.buyerName,
+    this.buyerProfileImageUrl, // 생성자에 추가
     required this.satisfaction,
     required this.content,
     required this.sellerEvaluation,
@@ -38,6 +40,8 @@ class ReviewModel {
       sellerName: json['sellerName'] as String,
       sellerProfileImageUrl: json['sellerProfileImageUrl'] as String?,
       buyerName: json['buyerName'] as String,
+      buyerProfileImageUrl:
+          json['buyerProfileImageUrl'] as String?, // JSON 파싱 추가
       satisfaction: json['satisfaction'] as int,
       content: json['content'] as String,
       sellerEvaluation: json['sellerEvaluation'] as String,
