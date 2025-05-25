@@ -3,8 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:renty_client/core/auth_interceptor.dart';
 
-
-
 // 앱 전체에서 공유할 수 있도록 Dio 인스턴스를 설정 (예: 싱글톤 또는 DI 사용)
 class ApiClient {
   late Dio dio;
@@ -16,8 +14,8 @@ class ApiClient {
   bool _isInitialized = false;
 
   // 도메인 (주석 해제해서 쓰십쇼)
-  // static const String domain = "https://deciding-silkworm-set.ngrok-free.app";
-  static const String domain = "http://138.2.125.12:8086";
+  static const String domain = "https://deciding-silkworm-set.ngrok-free.app";
+  // static const String domain = "http://138.2.125.12:8086";
   // static const String domain = "http://localhost:8088";
   // static const String domain = "http://localhost:8086";
 
@@ -27,7 +25,7 @@ class ApiClient {
 
   // 내부 생성자
   ApiClient._internal();
-  
+
   // 비동기 초기화 메서드
   Future<void> initialize() async {
     if (_isInitialized) return; // 이미 초기화되었다면 반환
@@ -42,13 +40,15 @@ class ApiClient {
     dio = Dio(options);
 
     dio.interceptors.add(AuthInterceptor());
-   
+
     // 로깅 인터셉터 추가 (개발 시 유용)
-    dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      logPrint: (o) => print('[DioLog] $o'), // 로그 출력 방식 정의
-    ));
+    dio.interceptors.add(
+      LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        logPrint: (o) => print('[DioLog] $o'), // 로그 출력 방식 정의
+      ),
+    );
 
     _isInitialized = true;
   }

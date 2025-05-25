@@ -8,7 +8,7 @@ import 'package:renty_client/main.dart';
 import 'package:renty_client/core/token_manager.dart';
 import 'package:renty_client/core/api_client.dart'; // API 클라이언트 추가
 import 'package:renty_client/myPage/EditProfile/profileEdit.dart';
-import 'package:renty_client/myPage/writeReview.dart';
+import 'package:renty_client/myPage/review/writeReview.dart';
 import 'package:renty_client/myPage/EditProfile/userInfoEdit.dart'; // 회원 정보 수정 페이지 추가
 import 'package:renty_client/myPage/CustomerService/appInfo.dart'; // 앱 정보 페이지 추가
 import 'package:renty_client/myPage/CustomerService/noticeList.dart'; // 공지사항 페이지 추가가
@@ -19,6 +19,8 @@ import 'package:renty_client/myPage/MyPost/myPostBoard.dart';
 import 'wish/wishList.dart';
 import 'myRentPage/myRentOut.dart';
 import 'myRentPageBuyer/myRentIn.dart';
+import 'package:renty_client/myPage/review/receivedReviews.dart';
+import 'package:renty_client/myPage/review/writtenReviews.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -60,8 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _isLoading = false;
         });
       }
-    }
-    on DioException catch (e) {
+    } on DioException catch (e) {
       // DioException 처리
       if (e.response?.statusCode == 401) {
         if (mounted) {
@@ -74,8 +75,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _isLoading = false;
       });
-    } 
-    catch (e) {
+    } catch (e) {
       print('프로필 데이터 로드 실패: $e');
       setState(() {
         _isLoading = false;
@@ -197,56 +197,31 @@ class _ProfilePageState extends State<ProfilePage> {
         context,
         MaterialPageRoute(builder: (context) => const InquiryChatBotPage()),
       );
-    // 대여중인 제품목록 클릭 시 리뷰 작성 페이지로 이동
-    } else if (title == '받은리뷰') {
+      // 대여중인 제품목록 클릭 시 리뷰 작성 페이지로 이동
+    } else if ((title == '찜 목록')) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder:
-              (context) =>
-              ReviewWritePage(
-                productTitle: '예제 상품 입니다',
-                productImageUrl: null, // 이미지 URL이 아직 없음
-                rentalDate: DateTime.now().subtract(
-                  const Duration(days: 7),
-                ), // 일주일 전 대여 종료
-                lessorName: '테스트계정_2',
-              ),
-        ),
-      ).then((value) {
-        // 리뷰 작성 후 돌아왔을 때 처리 (선택사항)
-        if (value == true) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('회원 정보를 불러오는데 실패했습니다.')));
-        }
-      });
-    } else if((title == '찜 목록')) {
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder:
-                  (context) =>
-                  WishlistPage()
-          )
+        MaterialPageRoute(builder: (context) => WishlistPage()),
       );
-    }else if(title == '빌려준 제품목록') {
+    } else if (title == '빌려준 제품목록') {
       Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder:
-                  (context) =>
-                  MyRentOutPage()
-          )
+        context,
+        MaterialPageRoute(builder: (context) => MyRentOutPage()),
       );
-    }else if(title == '대여중인 제품목록'){
+    } else if (title == '대여중인 제품목록') {
       Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder:
-                  (context) => MyRentInPage()
-          )
-
+        context,
+        MaterialPageRoute(builder: (context) => MyRentInPage()),
+      );
+    } else if (title == '받은 리뷰') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ReceivedReviewsPage(currentUserName: _userName)),
+      );
+    } else if (title == '작성한 리뷰') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => WrittenReviewsPage(currentUserName: _userName)),
       );
     } else {
       // 다른 항목들은 기존과 같이 처리

@@ -20,6 +20,7 @@ class PaymentService {
     required DateTime endDate,
     required int totalPrice,
     required int deposit,
+    String? sellerProfileImageUrl, // 추가된 매개변수
     required Function(String) onSuccess,
     required Function(String) onError,
     required BuildContext context, // BuildContext 추가

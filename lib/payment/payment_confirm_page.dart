@@ -8,22 +8,26 @@ class PaymentConfirmPage extends StatelessWidget {
   final Product product;
   final int itemId;
   final String buyerName;
+  final String sellerName;
   final DateTime startDate;
   final DateTime endDate;
   final int totalPrice;
   final int deposit;
-  final int tradeOfferVersion; // 추가된 필드
+  final int tradeOfferVersion;
+  final String? sellerProfileImageUrl; // 추가된 매개변수
 
   const PaymentConfirmPage({
     Key? key,
     required this.product,
     required this.itemId,
     required this.buyerName,
+    required this.sellerName,
     required this.startDate,
     required this.endDate,
     required this.totalPrice,
     required this.deposit,
-    required this.tradeOfferVersion, // 필수 파라미터로 추가
+    required this.tradeOfferVersion,
+    this.sellerProfileImageUrl, // 생성자에 추가
   }) : super(key: key);
 
   @override
@@ -280,12 +284,13 @@ class PaymentConfirmPage extends StatelessWidget {
                               product: product,
                               itemId: itemId,
                               buyerName: buyerName,
-                              sellerName: "판매자", // 실제로는 API에서 받아온 판매자 정보 사용
+                              sellerName: sellerName,
                               startDate: startDate,
                               endDate: endDate,
                               totalPrice: totalPrice,
                               deposit: deposit,
-                              tradeOfferVersion: tradeOfferVersion, // 버전 정보 추가
+                              tradeOfferVersion: tradeOfferVersion,
+                              sellerProfileImageUrl: sellerProfileImageUrl, // 프로필 이미지 전달
                             ),
                       ),
                     );

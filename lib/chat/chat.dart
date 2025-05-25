@@ -2402,7 +2402,8 @@ class _ChatScreenState extends State<ChatScreen>
                         _itemId,
                         startDate: _productStartDate,
                         endDate: _productEndDate,
-                        tradeOfferVersion: _tradeOfferVersion, // 업데이트된 버전 사용
+                        tradeOfferVersion: _tradeOfferVersion,
+                        profileImageUrl: _otherUserProfileImageUrl, // 상대방 프로필 이미지 URL 추가
                       );
                     },
             style: TextButton.styleFrom(

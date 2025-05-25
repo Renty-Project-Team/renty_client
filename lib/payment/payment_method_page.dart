@@ -39,6 +39,7 @@ class PaymentMethodPage extends StatefulWidget {
   final int totalPrice;
   final int deposit;
   final int tradeOfferVersion; // tradeOfferVersion 추가
+  final String? sellerProfileImageUrl; // 추가된 매개변수
 
   const PaymentMethodPage({
     Key? key,
@@ -51,6 +52,7 @@ class PaymentMethodPage extends StatefulWidget {
     required this.totalPrice,
     required this.deposit,
     required this.tradeOfferVersion, // 필수 파라미터로 추가
+    this.sellerProfileImageUrl, // 생성자에 추가
   }) : super(key: key);
 
   @override
@@ -869,14 +871,15 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
       await paymentService.completePayment(
         itemId: widget.itemId,
         tradeOfferVersion: widget.tradeOfferVersion,
-        product: widget.product, // 추가
+        product: widget.product,
         buyerName: widget.buyerName,
         sellerName: widget.sellerName ?? "판매자",
         startDate: widget.startDate,
         endDate: widget.endDate,
         totalPrice: widget.totalPrice,
         deposit: widget.deposit,
-        context: context, // 컨텍스트 전달
+        context: context,
+        sellerProfileImageUrl: widget.sellerProfileImageUrl, // 프로필 이미지 추가
         onSuccess: (message) async {
           if (!mounted) return;
 
@@ -899,6 +902,7 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
                     endDate: widget.endDate,
                     totalPrice: widget.totalPrice,
                     deposit: widget.deposit,
+                    sellerProfileImageUrl: widget.sellerProfileImageUrl, // 프로필 이미지 전달
                   ),
             ),
           );
