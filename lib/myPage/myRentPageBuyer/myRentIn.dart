@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:renty_client/main.dart';
 import '../../core/api_client.dart';
-import '../review/writeReview.dart';
+import 'package:renty_client/myPage/review/writeReview.dart';
 import 'myRentInService.dart';
 import 'package:renty_client/mypage/myRentPage/myRantOutData.dart';
 import 'RentInDetail.dart';
@@ -18,6 +18,9 @@ class MyRentInPage extends StatefulWidget {
 class _MyRentInPageState extends State<MyRentInPage> {
   List<RentOutItem> _items = [];
   bool _isLoading = true;
+  // 리뷰 작성 완료된 아이템 ID를 저장하는 Set
+  final Set<int> _reviewedItemIds = <int>{};
+
   @override
   void initState() {
     super.initState();
@@ -157,40 +160,6 @@ class _MyRentInPageState extends State<MyRentInPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              // 리뷰하기 버튼 추가 (조건 없이)
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  // 리뷰 작성 페이지로 이동
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => ReviewWritePage(
-                                            productTitle: item.title,
-                                            productImageUrl:
-                                                item.imgUrl != null
-                                                    ? '${ApiClient().getDomain}${item.imgUrl}'
-                                                    : null,
-                                            rentalDate: item.returnAt,
-                                            sellerName: item.buyerName ?? '알 수 없음',
-                                            sellerProfileImageUrl: item.profileImage,
-                                            itemId: item.itemId,
-                                          ),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.rate_review),
-                                label: const Text("리뷰 작성하기"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF4B70FD),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
                               TextButton.icon(
                                 onPressed: () async {
                                   int? chatRoomId = item.roomId;
@@ -244,6 +213,78 @@ class _MyRentInPageState extends State<MyRentInPage> {
                                 child: const Text("상세 내역"),
                               ),
                             ],
+                          ),
+                          // 리뷰 버튼을 아래로 이동
+                          const SizedBox(height: 12),
+                          // 리뷰 버튼을 전체 너비로 표시
+                          SizedBox(
+                            width: double.infinity,
+                            child:
+                                _reviewedItemIds.contains(item.itemId)
+                                    ? OutlinedButton.icon(
+                                      onPressed: null, // 비활성화
+                                      icon: const Icon(
+                                        Icons.check,
+                                        color: Colors.grey,
+                                      ),
+                                      label: const Text("리뷰완료"),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.grey,
+                                        disabledForegroundColor: Colors.grey
+                                            .withOpacity(0.6),
+                                        side: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                    )
+                                    : ElevatedButton.icon(
+                                      onPressed: () async {
+                                        final result = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (context) => ReviewWritePage(
+                                                  productTitle: item.title,
+                                                  productImageUrl:
+                                                      item.imgUrl != null
+                                                          ? '${ApiClient().getDomain}${item.imgUrl}'
+                                                          : null,
+                                                  rentalDate: item.returnAt,
+                                                  sellerName:
+                                                      item.buyerName ??
+                                                      '알 수 없음',
+                                                  sellerProfileImageUrl:
+                                                      item.profileImage,
+                                                  itemId: item.itemId,
+                                                ),
+                                          ),
+                                        );
+
+                                        // 리뷰 작성 완료된 경우
+                                        if (result == true) {
+                                          setState(() {
+                                            // 리뷰 완료된 아이템 ID 추가
+                                            _reviewedItemIds.add(item.itemId);
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.rate_review),
+                                      label: const Text("리뷰 작성하기"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF4B70FD,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                    ),
                           ),
                         ],
                       ),

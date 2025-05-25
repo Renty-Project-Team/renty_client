@@ -148,11 +148,12 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')));
-
-        Navigator.of(context).pop(true); // true는 리뷰 작성 성공을 의미
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')));
+          Navigator.of(context).pop(true); // true를 반환하여 리뷰 작성 완료 표시
+        }
       } else {
         throw Exception('리뷰 등록에 실패했습니다.');
       }

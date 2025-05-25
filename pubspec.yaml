@@ -45,6 +45,7 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.5.3
   logging: ^1.0.2
+  flutter_rating_bar: ^4.0.1 # 별점 표시를 위한 패키지
 
 dev_dependencies:
   flutter_test:

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:renty_client/core/api_client.dart';
 import 'package:renty_client/myPage/review/reviewModel.dart';
 import 'package:renty_client/myPage/review/reviewService.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart'; // 새로운 패키지 추가
 
 class ProductReviewsSection extends StatefulWidget {
   final int itemId;
@@ -22,7 +23,7 @@ class _ProductReviewsSectionState extends State<ProductReviewsSection> {
   final ReviewService _reviewService = ReviewService();
   late Future<List<ReviewModel>> _reviewsFuture;
   final ApiClient _apiClient = ApiClient();
-
+  
   @override
   void initState() {
     super.initState();
@@ -30,9 +31,7 @@ class _ProductReviewsSectionState extends State<ProductReviewsSection> {
   }
 
   void _loadReviews() {
-    _reviewsFuture = _reviewService.fetchAllReviews().then<List<ReviewModel>>((
-      reviews,
-    ) {
+    _reviewsFuture = _reviewService.fetchAllReviews().then<List<ReviewModel>>((reviews) {
       // 이 상품의 리뷰만 필터링
       return reviews.where((review) => review.itemId == widget.itemId).toList();
     });
@@ -44,174 +43,296 @@ class _ProductReviewsSectionState extends State<ProductReviewsSection> {
       future: _reviewsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Text('리뷰를 불러오는 중 오류가 발생했습니다: ${snapshot.error}');
-        }
-
-        final reviews = snapshot.data ?? [];
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(height: 32, thickness: 8, color: Color(0xFFF5F5F5)),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '상품 리뷰',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildReviewSummary(reviews),
-                  const SizedBox(height: 24),
-                  reviews.isEmpty
-                      ? _buildNoReviews()
-                      : _buildReviewsList(reviews),
-                ],
-              ),
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: CircularProgressIndicator(),
             ),
-          ],
+          );
+        } else if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Text(
+              '리뷰를 불러오는 중 오류가 발생했습니다: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
+        
+        final reviews = snapshot.data ?? [];
+        
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Divider(height: 1, color: Color(0xFFEEEEEE)),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildReviewHeader(reviews),
+                    const SizedBox(height: 20),
+                    _buildReviewSummary(reviews),
+                    const Divider(height: 40, color: Color(0xFFEEEEEE)),
+                    reviews.isEmpty 
+                        ? _buildNoReviews() 
+                        : _buildReviewsList(reviews),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildReviewSummary(List<ReviewModel> reviews) {
-    if (reviews.isEmpty) {
-      return const Row(
-        children: [
-          Text(
-            '평점 0.0',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(width: 8),
-          Text('(0개의 리뷰)', style: TextStyle(color: Colors.grey, fontSize: 14)),
-        ],
-      );
-    }
-
+  Widget _buildReviewHeader(List<ReviewModel> reviews) {
     // 평균 평점 계산
-    double averageRating =
-        reviews.fold(0.0, (sum, review) => sum + review.satisfaction) /
-        reviews.length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    double averageRating = reviews.isEmpty ? 0.0 :
+        reviews.fold(0.0, (sum, review) => sum + review.satisfaction) / reviews.length;
+    
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          children: [
-            Row(
-              children: [
-                for (int i = 0; i < 5; i++)
-                  Icon(
-                    i < averageRating.floor()
-                        ? Icons.star
-                        : (i < averageRating.ceil() &&
-                            averageRating.floor() != averageRating.ceil())
-                        ? Icons.star_half
-                        : Icons.star_border,
-                    color: Colors.amber,
-                    size: 24,
-                  ),
-              ],
+        Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4B70FD), Color(0xFF6A8DFF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(width: 8),
-            Text(
-              '${averageRating.toStringAsFixed(1)}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '(${reviews.length}개의 리뷰)',
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-          ],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.star, color: Colors.white, size: 20),
+              const SizedBox(width: 4),
+              Text(
+                '상품 리뷰',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        // 만족도 분포
-        _buildRatingDistribution(reviews),
+        const SizedBox(width: 12),
+        Text(
+          '${reviews.length}개의 리뷰',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          averageRating.toStringAsFixed(1),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF4B70FD),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildRatingDistribution(List<ReviewModel> reviews) {
+  Widget _buildReviewSummary(List<ReviewModel> reviews) {
+    if (reviews.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Row(
+          children: [
+            RatingBarIndicator(
+              rating: 0,
+              itemBuilder: (context, _) => const Icon(
+                Icons.star,
+                color: Colors.amber,
+              ),
+              itemCount: 5,
+              itemSize: 24.0,
+              unratedColor: Colors.grey[300],
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '아직 평가가 없습니다',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 평균 평점 계산
+    double averageRating = 
+        reviews.fold(0.0, (sum, review) => sum + review.satisfaction) / reviews.length;
+    
     // 각 별점별 개수 계산
     Map<int, int> ratingCounts = {};
     for (int i = 5; i >= 1; i--) {
-      ratingCounts[i] =
-          reviews.where((review) => review.satisfaction == i).length;
+      ratingCounts[i] = reviews.where((review) => review.satisfaction == i).length;
     }
-
+    
     return Column(
-      children:
-          ratingCounts.entries.map((entry) {
-            final percentage =
-                reviews.isEmpty ? 0.0 : entry.value / reviews.length;
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3.0),
-              child: Row(
-                children: [
-                  Text(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 평균 별점 표시
+        Row(
+          children: [
+            RatingBarIndicator(
+              rating: averageRating,
+              itemBuilder: (context, _) => const Icon(
+                Icons.star,
+                color: Colors.amber,
+              ),
+              itemCount: 5,
+              itemSize: 28.0,
+              unratedColor: Colors.grey[300],
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        
+        // 별점 분포 그래프
+        ...ratingCounts.entries.map((entry) {
+          final percentage = reviews.isEmpty ? 0.0 : entry.value / reviews.length;
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  child: Text(
                     '${entry.key}점',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Container(
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                        FractionallySizedBox(
-                          widthFactor: percentage,
-                          child: Container(
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.amber,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ),
-                      ],
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${entry.value}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: percentage,
+                        child: Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.amber, Colors.orange],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }).toList(),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '${entry.value}',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
 
   Widget _buildNoReviews() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30),
+      padding: const EdgeInsets.symmetric(vertical: 40),
       width: double.infinity,
-      child: const Column(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.rate_review_outlined, size: 48, color: Colors.grey),
-          SizedBox(height: 16),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.rate_review_outlined,
+              size: 40,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
             '아직 리뷰가 없습니다',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             '첫 번째 리뷰를 작성해보세요!',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () {
+              // 리뷰 작성 페이지로 이동하는 로직 추가
+            },
+            icon: const Icon(Icons.create, size: 16),
+            label: const Text('리뷰 작성하기'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF4B70FD),
+              side: const BorderSide(color: Color(0xFF4B70FD)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
         ],
       ),
@@ -220,194 +341,288 @@ class _ProductReviewsSectionState extends State<ProductReviewsSection> {
 
   Widget _buildReviewsList(List<ReviewModel> reviews) {
     final String baseDomain = _apiClient.getDomain;
-
-    return ListView.separated(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      itemCount: reviews.length,
-      separatorBuilder: (context, index) => const Divider(height: 16),
-      itemBuilder: (context, index) {
-        final review = reviews[index];
-
-        // 구매자(리뷰 작성자) 이름
-        final String buyerName = review.buyerName;
-
-        // 구매자 프로필 이미지 URL 처리
-        String? fullBuyerProfileImageUrl;
-        if (review.buyerProfileImageUrl != null &&
-            review.buyerProfileImageUrl!.isNotEmpty) {
-          fullBuyerProfileImageUrl =
-              review.buyerProfileImageUrl!.startsWith('http')
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '고객 리뷰',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            // 리뷰 정렬 필터 버튼 추가 가능
+          ],
+        ),
+        const SizedBox(height: 16),
+        ListView.separated(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: reviews.length,
+          separatorBuilder: (context, index) => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Divider(color: Color(0xFFEEEEEE)),
+          ),
+          itemBuilder: (context, index) {
+            final review = reviews[index];
+            
+            // 구매자 프로필 이미지 URL 처리
+            String? buyerProfileUrl;
+            if (review.buyerProfileImageUrl != null && review.buyerProfileImageUrl!.isNotEmpty) {
+              buyerProfileUrl = review.buyerProfileImageUrl!.startsWith('http')
                   ? review.buyerProfileImageUrl
                   : '$baseDomain${review.buyerProfileImageUrl}';
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 리뷰 헤더 (작성자, 별점, 날짜)
-            Row(
-              children: [
-                // 구매자 프로필 이미지 - 이미지가 있으면 사용, 없으면 이니셜 표시
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor:
-                      fullBuyerProfileImageUrl == null
-                          ? _getInitialColor(
-                            buyerName.isNotEmpty ? buyerName[0] : "?",
-                          )
-                          : null,
-                  backgroundImage:
-                      fullBuyerProfileImageUrl != null
-                          ? NetworkImage(fullBuyerProfileImageUrl)
-                          : null,
-                  child:
-                      fullBuyerProfileImageUrl == null
-                          ? Text(
-                            buyerName.isNotEmpty ? buyerName[0] : "?",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+            }
+            
+            // 리뷰 작성 후 경과 시간
+            final duration = DateTime.now().difference(review.writedAt);
+            String timeAgo;
+            if (duration.inDays > 30) {
+              timeAgo = DateFormat('yyyy.MM.dd').format(review.writedAt);
+            } else if (duration.inDays > 0) {
+              timeAgo = '${duration.inDays}일 전';
+            } else if (duration.inHours > 0) {
+              timeAgo = '${duration.inHours}시간 전';
+            } else if (duration.inMinutes > 0) {
+              timeAgo = '${duration.inMinutes}분 전';
+            } else {
+              timeAgo = '방금 전';
+            }
+            
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 리뷰 헤더 (작성자, 별점, 날짜)
+                  Row(
+                    children: [
+                      // 구매자 프로필 이미지
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: buyerProfileUrl == null 
+                              ? _getInitialColor(review.buyerName) 
+                              : null,
+                          image: buyerProfileUrl != null 
+                              ? DecorationImage(
+                                  image: NetworkImage(buyerProfileUrl),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
-                          )
-                          : null,
-                ),
-
-                const SizedBox(width: 8),
-
-                // 구매자 이름으로 변경
-                Text(
-                  buyerName, // buyerName 사용
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-
-                const Spacer(),
-
-                // 별점
-                Row(
-                  children: [
-                    for (int i = 0; i < 5; i++)
-                      Icon(
-                        i < review.satisfaction
-                            ? Icons.star
-                            : Icons.star_border,
-                        color:
-                            i < review.satisfaction
-                                ? Colors.amber
-                                : Colors.grey[300],
-                        size: 16,
+                          ],
+                        ),
+                        child: buyerProfileUrl == null
+                            ? Center(
+                                child: Text(
+                                  review.buyerName.isNotEmpty ? review.buyerName[0] : "?",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              )
+                            : null,
                       ),
-                  ],
-                ),
-
-                const SizedBox(width: 8),
-
-                // 날짜
-                Text(
-                  DateFormat('yyyy.MM.dd').format(review.writedAt),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // 리뷰 내용
-            Text(review.content, style: const TextStyle(fontSize: 14)),
-
-            // 리뷰 이미지가 있을 경우 표시
-            if (review.imagesUrl.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 80,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: review.imagesUrl.length,
-                  itemBuilder: (context, imgIndex) {
-                    final imageUrl = review.imagesUrl[imgIndex];
-                    final fullImageUrl =
-                        imageUrl.startsWith('http')
-                            ? imageUrl
-                            : '$baseDomain$imageUrl';
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.network(
-                          fullImageUrl,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 80,
-                              height: 80,
-                              color: Colors.grey[300],
-                              child: const Icon(
-                                Icons.broken_image,
-                                color: Colors.grey,
+                      const SizedBox(width: 12),
+                      
+                      // 작성자 정보 및 별점
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            review.buyerName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              RatingBarIndicator(
+                                rating: review.satisfaction.toDouble(),
+                                itemBuilder: (context, _) => const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                ),
+                                itemCount: 5,
+                                itemSize: 16.0,
+                                unratedColor: Colors.grey[300],
                               ),
-                            );
-                          },
+                              const SizedBox(width: 8),
+                              Text(
+                                timeAgo,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // 리뷰 내용
+                  Text(
+                    review.content,
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.4,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  
+                  // 리뷰 이미지가 있을 경우 표시
+                  if (review.imagesUrl.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildReviewImages(review.imagesUrl, baseDomain),
+                  ],
+                  
+                  // 판매자 평가 표시 (Good, Bad인 경우)
+                  if (review.sellerEvaluation != 'None') ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: review.sellerEvaluation == 'Good' 
+                            ? Colors.blue.withOpacity(0.1) 
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            review.sellerEvaluation == 'Good' 
+                                ? Icons.thumb_up_alt
+                                : Icons.thumb_down_alt,
+                            size: 16,
+                            color: review.sellerEvaluation == 'Good' 
+                                ? Colors.blue[600]
+                                : Colors.red[600],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            review.sellerEvaluation == 'Good' 
+                                ? '구매자 추천해요' 
+                                : '구매자 비추천해요',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: review.sellerEvaluation == 'Good' 
+                                  ? Colors.blue[600]
+                                  : Colors.red[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
+                  // 리뷰 하단 액션 버튼 (좋아요, 도움 등)
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {},
+                        icon: Icon(Icons.thumb_up_outlined, size: 16, color: Colors.grey[600]),
+                        label: Text(
+                          '도움돼요',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
-
-            // 판매자 평가 표시 (Good, Bad인 경우)
-            if (review.sellerEvaluation != 'None') ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    review.sellerEvaluation == 'Good'
-                        ? Icons.thumb_up
-                        : Icons.thumb_down,
-                    size: 14,
-                    color:
-                        review.sellerEvaluation == 'Good'
-                            ? Colors.blue
-                            : Colors.red,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    review.sellerEvaluation == 'Good' ? '추천해요' : '비추천해요',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color:
-                          review.sellerEvaluation == 'Good'
-                              ? Colors.blue
-                              : Colors.red,
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ],
-        );
-      },
+            );
+          },
+        ),
+      ],
     );
   }
 
-  // 이니셜에 따라 색상을 지정하는 함수 추가
-  Color _getInitialColor(String initial) {
-    final colors = [
-      Colors.blue[700]!,
-      Colors.red[700]!,
-      Colors.green[700]!,
-      Colors.orange[700]!,
-      Colors.purple[700]!,
-      Colors.teal[700]!,
-      Colors.pink[700]!,
-      Colors.indigo[700]!,
+  Widget _buildReviewImages(List<String> imageUrls, String baseDomain) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: imageUrls.map((imageUrl) {
+          final fullImageUrl = imageUrl.startsWith('http') 
+              ? imageUrl 
+              : '$baseDomain$imageUrl';
+          
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: GestureDetector(
+              onTap: () {
+                // 이미지 확대 보기 기능 추가 가능
+              },
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  image: DecorationImage(
+                    image: NetworkImage(fullImageUrl),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: null,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
+  Color _getInitialColor(String name) {
+    final List<Color> colors = [
+      const Color(0xFF5E7CE2), // 파란색 계열
+      const Color(0xFFE85F5C), // 붉은색 계열
+      const Color(0xFF4ECDC4), // 청록색 계열
+      const Color(0xFFFF922B), // 주황색 계열
+      const Color(0xFFAA6DA3), // 보라색 계열
+      const Color(0xFF61B136), // 초록색 계열
+      const Color(0xFFFFB400), // 노란색 계열
     ];
-
-    // 이니셜 문자의 코드값을 기반으로 색상 선택
-    final colorIndex = initial.codeUnitAt(0) % colors.length;
-    return colors[colorIndex];
+    
+    // 이름 첫 글자 기준으로 색상 선택
+    final int hashCode = name.isEmpty ? 0 : name.codeUnitAt(0);
+    return colors[hashCode % colors.length];
   }
 }
