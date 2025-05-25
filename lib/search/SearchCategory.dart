@@ -32,6 +32,7 @@ class SearchCategories extends StatelessWidget {  //아이콘 출가 할거 있�
                 crossAxisCount: 4,
                 crossAxisSpacing: 5,
                 mainAxisSpacing: 12,
+                childAspectRatio: 0.75,
               ),
               itemBuilder: (context, index) {
                 final category = categories[index];
@@ -46,6 +47,7 @@ class SearchCategories extends StatelessWidget {  //아이콘 출가 할거 있�
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(category['icon'], size: 35),

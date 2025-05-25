@@ -13,18 +13,18 @@ class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> categories = [
-    {'icon': Icons.checkroom, 'label': 'ClothingAndFashion', 'kor': '의류 및 패션'},
+    {'icon': Icons.checkroom, 'label': 'ClothingAndFashion', 'kor': '의류/패션'},
     {'icon': Icons.computer, 'label': 'Electronics', 'kor': '전자제품'},
-    {'icon': Icons.chair, 'label': 'FurnitureAndInterior', 'kor': '가구 및 인테리어'},
+    {'icon': Icons.chair, 'label': 'FurnitureAndInterior', 'kor': '가구/인테리어'},
     {'icon': Icons.brush, 'label': 'BeautyAndCosmetics', 'kor': '뷰티/미용'},
     {'icon': Icons.book, 'label': 'Books', 'kor': '도서'},
     {'icon': Icons.create, 'label': 'Stationery', 'kor': '문구'},
     {'icon': Icons.directions_car, 'label': 'CarAccessories', 'kor': '자동차용품'},
     {'icon': Icons.sports_tennis, 'label': 'Sports', 'kor': '스포츠레저'},
-    {'icon': Icons.baby_changing_station, 'label': 'InfantsAndChildren', 'kor': '유아 및 아동'},
+    {'icon': Icons.baby_changing_station, 'label': 'InfantsAndChildren', 'kor': '유아/아동'},
     {'icon': Icons.pets, 'label': 'PetSupplies', 'kor': '반려동물 용품'},
-    {'icon': Icons.local_hospital, 'label': 'HealthAndMedical', 'kor': '건강 및 의료'},
-    {'icon': Icons.hiking, 'label': 'Hobbies', 'kor': '취미 및 여가'},
+    {'icon': Icons.local_hospital, 'label': 'HealthAndMedical', 'kor': '건강/의료'},
+    {'icon': Icons.hiking, 'label': 'Hobbies', 'kor': '취미/여가'},
   ];
 
   @override
@@ -81,6 +81,7 @@ class _SearchPageState extends State<SearchPage> {
                   crossAxisCount: 4,
                   crossAxisSpacing: 5,
                   mainAxisSpacing: 12,
+                  childAspectRatio: 0.75,
                 ),
                 itemBuilder: (context, index) {
                   final category = categories[index];
@@ -103,6 +104,7 @@ class _SearchPageState extends State<SearchPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(category['icon'], size: 35),
