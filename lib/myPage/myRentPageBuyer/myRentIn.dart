@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:renty_client/main.dart';
 import '../../core/api_client.dart';
 import 'package:renty_client/myPage/review/writeReview.dart';
+import 'package:renty_client/myPage/review/editReview.dart'; // EditReviewScreen 추가
+import 'package:renty_client/myPage/review/reviewModel.dart'; // ReviewModel 추가
+import 'package:renty_client/myPage/review/reviewService.dart'; // ReviewService 추가
 import 'myRentInService.dart';
 import 'package:renty_client/mypage/myRentPage/myRantOutData.dart';
 import 'RentInDetail.dart';
@@ -18,13 +21,31 @@ class MyRentInPage extends StatefulWidget {
 class _MyRentInPageState extends State<MyRentInPage> {
   List<RentOutItem> _items = [];
   bool _isLoading = true;
-  // 리뷰 작성 완료된 아이템 ID를 저장하는 Set
-  final Set<int> _reviewedItemIds = <int>{};
+  // 리뷰 서비스 인스턴스 생성
+  final ReviewService _reviewService = ReviewService();
+  // 상품 ID별 리뷰 정보 저장
+  final Map<int, ReviewModel?> _reviewsByItemId = {};
 
   @override
   void initState() {
     super.initState();
     fetchRentOutItems();
+    fetchExistingReviews(); // 기존 리뷰 로드
+  }
+
+  // 기존 리뷰 데이터를 불러오는 함수
+  Future<void> fetchExistingReviews() async {
+    try {
+      final reviews = await _reviewService.fetchAllReviews();
+      setState(() {
+        // 상품 ID별로 리뷰 정보 저장
+        for (var review in reviews) {
+          _reviewsByItemId[review.itemId] = review;
+        }
+      });
+    } catch (e) {
+      print('리뷰 불러오기 실패: $e');
+    }
   }
 
   Future<void> fetchRentOutItems() async {
@@ -53,6 +74,8 @@ class _MyRentInPageState extends State<MyRentInPage> {
                   if (step == -1) return const SizedBox(); // 취소된 건 생략
 
                   final imageUrl = '${apiClient.getDomain}${item.imgUrl}';
+                  // 이 상품에 대한 리뷰가 있는지 확인
+                  final hasReview = _reviewsByItemId.containsKey(item.itemId);
 
                   return Card(
                     margin: const EdgeInsets.all(10),
@@ -216,38 +239,28 @@ class _MyRentInPageState extends State<MyRentInPage> {
                           ),
                           // 리뷰 버튼을 아래로 이동
                           const SizedBox(height: 12),
-                          // 리뷰 버튼을 전체 너비로 표시
+                          // 리뷰 작성/수정 버튼 (항상 활성화 상태)
                           SizedBox(
                             width: double.infinity,
-                            child:
-                                _reviewedItemIds.contains(item.itemId)
-                                    ? OutlinedButton.icon(
-                                      onPressed: null, // 비활성화
-                                      icon: const Icon(
-                                        Icons.check,
-                                        color: Colors.grey,
-                                      ),
-                                      label: const Text("리뷰완료"),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.grey,
-                                        disabledForegroundColor: Colors.grey
-                                            .withOpacity(0.6),
-                                        side: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                    )
-                                    : ElevatedButton.icon(
-                                      onPressed: () async {
-                                        final result = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder:
-                                                (context) => ReviewWritePage(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                // 이미 리뷰가 있는지 확인하고 해당 리뷰 가져오기
+                                final existingReview =
+                                    _reviewsByItemId[item.itemId];
+
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            existingReview != null
+                                                // 기존 리뷰가 있으면 수정 화면으로 이동
+                                                ? EditReviewScreen(
+                                                  review: existingReview,
+                                                )
+                                                // 없으면 새로운 리뷰 작성 화면으로 이동
+                                                : ReviewWritePage(
+                                                  itemId: item.itemId,
                                                   productTitle: item.title,
                                                   productImageUrl:
                                                       item.imgUrl != null
@@ -259,32 +272,28 @@ class _MyRentInPageState extends State<MyRentInPage> {
                                                       '알 수 없음',
                                                   sellerProfileImageUrl:
                                                       item.profileImage,
-                                                  itemId: item.itemId,
                                                 ),
-                                          ),
-                                        );
+                                  ),
+                                );
 
-                                        // 리뷰 작성 완료된 경우
-                                        if (result == true) {
-                                          setState(() {
-                                            // 리뷰 완료된 아이템 ID 추가
-                                            _reviewedItemIds.add(item.itemId);
-                                          });
-                                        }
-                                      },
-                                      icon: const Icon(Icons.rate_review),
-                                      label: const Text("리뷰 작성하기"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF4B70FD,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                    ),
+                                // 리뷰 작성/수정이 완료된 경우
+                                if (result == true) {
+                                  // 리뷰 목록 새로고침
+                                  fetchExistingReviews();
+                                }
+                              },
+                              icon: const Icon(Icons.rate_review),
+                              // 리뷰 상태에 따라 버튼 텍스트 변경
+                              label: Text(hasReview ? "리뷰 수정하기" : "리뷰 작성하기"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4B70FD),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),

@@ -22,13 +22,21 @@ class ReviewService {
     }
   }
 
-  // 특정 상품의 리뷰만 가져오기
-  Future<List<ReviewModel>> fetchProductReviews(int itemId) async {
+  Future<List<ReviewModel>> fetchAllProductReviews(int itemId) async {
     try {
-      final allReviews = await fetchAllReviews();
-      return allReviews.where((review) => review.itemId == itemId).toList();
-    } catch (e) {
-      throw Exception('상품 리뷰를 불러오는 중 오류가 발생했습니다: $e');
+      final response = await ApiClient().client.get(
+        '/My/reviews?itemId=$itemId',
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> reviewsData = response.data;
+        return reviewsData.map((json) => ReviewModel.fromJson(json)).toList();
+      } else {
+        return [];
+      }
+    } on DioError catch (e) {
+      print("리뷰 불러오기 실패: ${e.message}");
+      return [];
     }
   }
 }

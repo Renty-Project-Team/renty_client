@@ -16,6 +16,7 @@ import 'package:renty_client/myPage/CustomerService/faqPage.dart'; // FAQ 페이
 import 'package:renty_client/myPage/CustomerService/inquiryChatbot.dart'; // 1:1 문의 챗봇 페이지 추가
 import 'package:renty_client/myPage/incomePage.dart'; // 수익금 페이지 추가
 import 'package:renty_client/myPage/MyPost/myPostBoard.dart';
+import 'paymentHistory/paymentHistoryPage.dart';
 import 'wish/wishList.dart';
 import 'myRentPage/myRentOut.dart';
 import 'myRentPageBuyer/myRentIn.dart';
@@ -110,7 +111,7 @@ class _ProfilePageState extends State<ProfilePage> {
     {'title': '앱 정보', 'icon': Icons.arrow_forward_ios},
   ];
 
-  // _handleItemClick 메서드 내에서 수정
+  // _handleItemClick 메서드 내에 추가할 부분
   void _handleItemClick(String title) async {
     // 햅틱 피드백 추가
     HapticFeedback.lightImpact();
@@ -216,12 +217,21 @@ class _ProfilePageState extends State<ProfilePage> {
     } else if (title == '받은 리뷰') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => ReceivedReviewsPage(currentUserName: _userName)),
+        MaterialPageRoute(
+          builder: (context) => ReceivedReviewsPage(currentUserName: _userName),
+        ),
       );
     } else if (title == '작성한 리뷰') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => WrittenReviewsPage(currentUserName: _userName)),
+        MaterialPageRoute(
+          builder: (context) => WrittenReviewsPage(currentUserName: _userName),
+        ),
+      );
+    } else if (title == '결제완료 물품') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PaymentHistoryPage()),
       );
     } else {
       // 다른 항목들은 기존과 같이 처리
