@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:renty_client/main.dart';
 import 'package:flutter/foundation.dart';
-import 'AdBoard.dart';
-import 'package:renty_client/detailed_post/detailPost.dart';
-import 'postService.dart';
-import 'postDataFile.dart';
-import 'package:renty_client/windowClickEvent/scrollEvent.dart';
 import 'package:intl/intl.dart';
+import 'package:renty_client/core/api_client.dart';
+import 'package:renty_client/main.dart';
+import 'package:renty_client/post/postService.dart';
+import 'package:renty_client/post/postDataFile.dart'; // Product, BuyerPost
+import 'package:renty_client/post/buyerPost/buyerPost.dart'; // BuyerPostCard
+import 'package:renty_client/windowClickEvent/scrollEvent.dart';
+import 'package:renty_client/detailed_post/detailPost.dart';
+import 'package:renty_client/detailed_post/buyerDetail/buyerDetailPost.dart';
+import 'package:renty_client/post/AdBoard.dart';
+
+/// 통합 타입
+abstract class PostUnion {}
+
+class SellerProduct extends Product implements PostUnion {
+  SellerProduct({
+    required super.id,
+    required super.title,
+    required super.price,
+    required super.deposit,
+    required super.categorys,
+    required super.priceUnit,
+    required super.viewCount,
+    required super.wishCount,
+    required super.chatCount,
+    required super.createdAt,
+    required super.imageUrl,
+    required super.userName,
+  });
+}
 
 class ProductListPage extends StatefulWidget {
   @override
@@ -14,60 +37,67 @@ class ProductListPage extends StatefulWidget {
 }
 
 class _ProductListPageState extends State<ProductListPage> {
-  List<Product> _products = [];
+  List<PostUnion> _items = [];
   bool _isLoading = false;
-  bool _hasMore = true;
-
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    _fetchAll();
 
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 300 &&
-          !_isLoading &&
-          _hasMore) {
-        _fetchProducts();
+          !_isLoading) {
+        // 페이징 처리 시 사용 가능
       }
     });
   }
 
-  Future<void> _fetchProducts() async {
-    if (_isLoading) return;
+  Future<void> _fetchAll() async {
     setState(() => _isLoading = true);
-
-    String? maxCreatedAt;
-    if (_products.isNotEmpty) {
-      maxCreatedAt = _products.last.createdAt.toIso8601String();
-    }
-
     try {
-      final newProducts =
-      await PostService().fetchProducts(maxCreatedAt: maxCreatedAt);
-      if (newProducts.length < 20) {
-        _hasMore = false;
-      }
-      setState(() {
-        _products.addAll(newProducts);
+      final postService = PostService();
+      final products = await postService.fetchProducts();
+      final posts = await postService.fetchBuyerPosts();
+
+      _items = [
+        ...products.map((p) => SellerProduct(
+          id: p.id,
+          title: p.title,
+          price: p.price,
+          deposit: p.deposit,
+          categorys: p.categorys,
+          priceUnit: p.priceUnit,
+          viewCount: p.viewCount,
+          wishCount: p.wishCount,
+          chatCount: p.chatCount,
+          createdAt: p.createdAt,
+          imageUrl: p.imageUrl,
+          userName: p.userName,
+        )),
+        ...posts,
+      ];
+
+      _items.sort((a, b) {
+        DateTime aTime = a is SellerProduct ? a.createdAt : (a as BuyerPost).createdAt;
+        DateTime bTime = b is SellerProduct ? b.createdAt : (b as BuyerPost).createdAt;
+        return bTime.compareTo(aTime);
       });
+
+      setState(() {});
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('상품 불러오기 실패: $e')),
+        SnackBar(content: Text('불러오기 실패: $e')),
       );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _refreshProducts() async {
-    setState(() {
-      _products.clear();
-      _hasMore = true;
-    });
-    await _fetchProducts();
+  Future<void> _refresh() async {
+    await _fetchAll();
   }
 
   @override
@@ -79,50 +109,60 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   Widget build(BuildContext context) {
     final listView = RefreshIndicator(
-      onRefresh: _refreshProducts,
+      onRefresh: _refresh,
       child: ListView.separated(
         controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(), // ✅ 모바일에서 새로고침 가능하도록 강제
-        itemCount: _products.length + (_hasMore ? 1 : 0),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _items.length,
         separatorBuilder: (context, index) {
           if ((index + 1) % 5 == 0) return AdCard();
-          return SizedBox(height: 0);
+          return SizedBox.shrink();
         },
         itemBuilder: (context, index) {
-          if (index < _products.length) {
-            return ProductCard(product: _products[index]);
-          } else {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+          final item = _items[index];
+
+          return InkWell(
+            onTap: () {
+              if (item is SellerProduct) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => DetailPage(itemId: item.id)),
+                );
+              } else if (item is BuyerPost) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => BuyerPostDetailPage(postId: item.id)),
+                );
+              }
+            },
+            child: item is SellerProduct
+                ? ProductCard(product: item)
+                : item is BuyerPost
+                ? BuyerPostCard(post: item)
+                : SizedBox.shrink(),
+          );
         },
       ),
     );
 
-    // ✅ 데스크탑일 경우만 드래그+단축키 래퍼 적용
     final isDesktop = [
       TargetPlatform.windows,
       TargetPlatform.macOS,
       TargetPlatform.linux,
     ].contains(defaultTargetPlatform);
 
-    if (isDesktop) {
-      return DraggableScrollWrapper(
-        controller: _scrollController,
-        onRefreshShortcut: () {
-          print('✅ F5 or Ctrl+R 눌러서 새로고침 호출됨');
-          _refreshProducts();
-        },
-        child: listView,
-      );
-    } else {
-      return listView; // 모바일에서는 그대로 RefreshIndicator만 사용
-    }
+    return isDesktop
+        ? DraggableScrollWrapper(
+      controller: _scrollController,
+      onRefreshShortcut: _refresh,
+      child: listView,
+    )
+        : listView;
   }
 }
 
+
+/// 상품 카드 UI
 class ProductCard extends StatelessWidget {
   final Product product;
 
@@ -155,7 +195,7 @@ class ProductCard extends StatelessWidget {
                   width: 90,
                   height: 90,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+                  errorBuilder: (_, __, ___) => Container(
                     width: 90,
                     height: 90,
                     color: Colors.grey[300],
@@ -196,8 +236,7 @@ class ProductCard extends StatelessWidget {
                     children: [
                       Icon(Icons.favorite_border, size: 14, color: Colors.grey),
                       SizedBox(width: 4),
-                      Text('${product.wishCount}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text('${product.wishCount}', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                   SizedBox(height: 4),
@@ -205,8 +244,7 @@ class ProductCard extends StatelessWidget {
                     children: [
                       Icon(Icons.remove_red_eye, size: 14, color: Colors.grey),
                       SizedBox(width: 4),
-                      Text('${product.viewCount}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text('${product.viewCount}', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ],
