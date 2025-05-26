@@ -15,10 +15,12 @@ class ReviewService {
         final List<dynamic> data = response.data;
         return data.map((json) => ReviewModel.fromJson(json)).toList();
       } else {
-        throw Exception('리뷰를 불러오는데 실패했습니다');
+        print("리뷰 불러오기 실패");
+        return [];
       }
     } catch (e) {
-      throw Exception('리뷰를 불러오는 중 오류가 발생했습니다: $e');
+      print("리뷰 불러오기 실패");
+      return [];
     }
   }
 
