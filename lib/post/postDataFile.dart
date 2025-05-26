@@ -1,3 +1,4 @@
+import 'mainBoard.dart';
 class Product {
   final int id;
   final String title;
@@ -42,6 +43,41 @@ class Product {
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       imageUrl: json['imageUrl'] ?? '',
       userName: json['userName'] ?? '', // JSON에서 userName 파싱 추가
+    );
+  }
+}
+
+class BuyerPost implements PostUnion {
+  final int id;
+  final String userName;
+  final String title;
+  final String category;
+  final int viewCount;
+  final int commentCount;
+  final DateTime createdAt;
+  final String? imageUrl;
+
+  BuyerPost({
+    required this.id,
+    required this.userName,
+    required this.title,
+    required this.category,
+    required this.viewCount,
+    required this.commentCount,
+    required this.createdAt,
+    this.imageUrl,
+  });
+
+  factory BuyerPost.fromJson(Map<String, dynamic> json) {
+    return BuyerPost(
+      id: json['id'],
+      userName: json['userName'],
+      title: json['title'],
+      category: json['category'],
+      viewCount: json['viewCount'],
+      commentCount: json['commentCount'],
+      createdAt: DateTime.parse(json['createdAt']),
+      imageUrl: json['imageUrl'],
     );
   }
 }

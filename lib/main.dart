@@ -11,6 +11,7 @@ import 'post/mainBoard.dart';
 import 'search/search.dart';
 import 'chat/chat_list.dart';
 import 'overlayAnimation.dart';
+import 'buyerPost/buyerPost.dart';
 
 
 final ApiClient apiClient = ApiClient();
@@ -66,6 +67,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const MainPage(),
         '/product_upload': (context) => const ProductUpload(),
+        '/request_upload' : (context) => const PostUploadPage(),
         '/search': (context) => const SearchPage(),
         '/chat_list': (context) => const ChatListPage(), // 채팅 목록 페이지
         '/login': (context) => const LoginPage(),
