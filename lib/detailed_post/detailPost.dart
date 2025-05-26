@@ -8,6 +8,7 @@ import 'productService.dart';
 import 'productDataFile.dart';
 import 'package:renty_client/windowClickEvent/dragEvent.dart'; // 드래그 wrapper 임포트
 import 'package:intl/intl.dart';
+import 'ProductReviews.dart';
 
 class DetailPage extends StatefulWidget {
   final int itemId;
@@ -33,6 +34,7 @@ class _DetailPageState extends State<DetailPage> {
       });
     });
   }
+
   Future<bool> isWished(int itemId) async {
     final response = await ApiClient().client.get('/My/wishlist');
 
@@ -52,6 +54,7 @@ class _DetailPageState extends State<DetailPage> {
 
     return false;
   }
+
   // 채팅방 생성 함수
   Future<Map<String, dynamic>?> _createChatRoom(
     BuildContext context,
@@ -118,9 +121,11 @@ class _DetailPageState extends State<DetailPage> {
                     child: PageView.builder(
                       controller: controller,
                       itemCount: images.length,
-                      onPageChanged: (index) => setState(() => localIndex = index),
+                      onPageChanged:
+                          (index) => setState(() => localIndex = index),
                       itemBuilder: (context, index) {
-                        final imageUrl = '${apiClient.getDomain}${images[index]}';
+                        final imageUrl =
+                            '${apiClient.getDomain}${images[index]}';
                         return Image.network(
                           imageUrl,
                           fit: BoxFit.contain,
@@ -210,7 +215,9 @@ class _DetailPageState extends State<DetailPage> {
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _productFuture = ProductService().fetchProduct(widget.itemId);
+                        _productFuture = ProductService().fetchProduct(
+                          widget.itemId,
+                        );
                       });
                     },
                     child: Text('다시 시도하기'),
@@ -230,7 +237,10 @@ class _DetailPageState extends State<DetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 400, child: _buildImageSlider(product.imagesUrl)),
+                  SizedBox(
+                    height: 400,
+                    child: _buildImageSlider(product.imagesUrl),
+                  ),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -239,12 +249,17 @@ class _DetailPageState extends State<DetailPage> {
                         Row(
                           children: [
                             CircleAvatar(
-                              backgroundImage: (product.userProfileImage?.isNotEmpty ?? false)
-                                  ? NetworkImage('${apiClient.getDomain}${product.userProfileImage}')
-                                  : null,
-                              child: (product.userProfileImage?.isEmpty ?? true)
-                                  ? Icon(Icons.person)
-                                  : null,
+                              backgroundImage:
+                                  (product.userProfileImage?.isNotEmpty ??
+                                          false)
+                                      ? NetworkImage(
+                                        '${apiClient.getDomain}${product.userProfileImage}',
+                                      )
+                                      : null,
+                              child:
+                                  (product.userProfileImage?.isEmpty ?? true)
+                                      ? Icon(Icons.person)
+                                      : null,
                             ),
                             SizedBox(width: 8),
                             Text(
@@ -259,42 +274,71 @@ class _DetailPageState extends State<DetailPage> {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: '[${product.state == 'Active' ? '대여 가능' : '대여중'}] ',
+                                text:
+                                    '[${product.state == 'Active' ? '대여 가능' : '대여중'}] ',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: product.state == 'Active' ? Colors.green : Colors.red,
+                                  color:
+                                      product.state == 'Active'
+                                          ? Colors.green
+                                          : Colors.red,
                                 ),
                               ),
                               TextSpan(
                                 text: product.title,
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        Text("카테고리: ${product.categories.isNotEmpty ? product.categories.first : '없음'}",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          "카테고리: ${product.categories.isNotEmpty ? product.categories.first : '없음'}",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         SizedBox(height: 8),
                         Column(
                           children: [
                             Row(
                               children: [
                                 Spacer(),
-                                Text("대여 가격: ${product.priceUnit} ",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                Text("${NumberFormat("#,###").format(product.price.toInt())} 원",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                Text(
+                                  "대여 가격: ${product.priceUnit} ",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
+                                ),
+                                Text(
+                                  "${NumberFormat("#,###").format(product.price.toInt())} 원",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
+                                ),
                               ],
                             ),
                             SizedBox(height: 4),
                             Row(
                               children: [
                                 Spacer(),
-                                Text("보증금: ",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                Text("${NumberFormat("#,###").format(product.securityDeposit.toInt())} 원",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                Text(
+                                  "보증금: ",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
+                                ),
+                                Text(
+                                  "${NumberFormat("#,###").format(product.securityDeposit.toInt())} 원",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                  ),
+                                ),
                               ],
                             ),
                             SizedBox(height: 4),
@@ -304,15 +348,24 @@ class _DetailPageState extends State<DetailPage> {
                                 Icon(Icons.visibility),
                                 Text(" ${product.viewCount}"),
                                 Icon(Icons.favorite_border),
-                                Text("${product.wishCount}")
+                                Text("${product.wishCount}"),
                               ],
                             ),
                             Divider(height: 24, thickness: 1),
                           ],
                         ),
-                        Text(product.description,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(
+                          product.description,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                         SizedBox(height: 24),
+                        ProductReviewsSection(
+                          itemId: widget.itemId,
+                          sellerName: product.userName,
+                        ),
                       ],
                     ),
                   ),
@@ -333,7 +386,9 @@ class _DetailPageState extends State<DetailPage> {
                       onPressed: () async {
                         try {
                           if (_isWished) {
-                            await ProductService().removeFromWishlist(widget.itemId);
+                            await ProductService().removeFromWishlist(
+                              widget.itemId,
+                            );
                             setState(() {
                               _isWished = false;
                             });
@@ -357,7 +412,11 @@ class _DetailPageState extends State<DetailPage> {
                             // Navigator.pushNamed(context, '/login');
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('요청 실패: ${e.response?.data['message'] ?? e.message}')),
+                              SnackBar(
+                                content: Text(
+                                  '요청 실패: ${e.response?.data['message'] ?? e.message}',
+                                ),
+                              ),
                             );
                           }
                         } catch (e) {
@@ -371,7 +430,10 @@ class _DetailPageState extends State<DetailPage> {
                     ElevatedButton(
                       onPressed: () async {
                         // 채팅방 생성 함수 호출
-                        final result = await _createChatRoom(context, widget.itemId);
+                        final result = await _createChatRoom(
+                          context,
+                          widget.itemId,
+                        );
 
                         if (result != null) {
                           // 채팅방 생성 성공

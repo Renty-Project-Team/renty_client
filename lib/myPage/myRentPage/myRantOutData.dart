@@ -12,6 +12,7 @@ class RentOutItem {
   final String state;
   final String? imgUrl;
   final int? roomId;
+  final String? profileImage;
 
   RentOutItem({
     required this.roomId,
@@ -26,7 +27,8 @@ class RentOutItem {
     required this.returnAt,
     required this.buyerName,
     required this.state,
-    required this.imgUrl
+    required this.imgUrl,
+    required this.profileImage,
   });
 
   factory RentOutItem.fromJson(Map<String, dynamic> json) {
@@ -49,7 +51,8 @@ class RentOutItem {
       returnAt: DateTime.parse(json['returnAt']),
       buyerName: json['name']??'',
       state: json['state'],
-      imgUrl: json['itemImageUrl']??''
+      imgUrl: json['itemImageUrl']??'',
+      profileImage: json['profileImage'],
     );
   }
 }

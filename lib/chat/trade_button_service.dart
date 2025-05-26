@@ -81,9 +81,10 @@ class TradeButtonService {
     Product product,
     String callerName,
     int itemId, {
-    DateTime? startDate, // 판매자가 설정한 시작일
-    DateTime? endDate, // 판매자가 설정한 종료일
+    DateTime? startDate,
+    DateTime? endDate,
     required int tradeOfferVersion,
+    String? profileImageUrl,
   }) {
     print('==== 대여 모달 디버깅 ====');
     print('itemId: $itemId');
@@ -381,12 +382,13 @@ class TradeButtonService {
                                         product: product,
                                         itemId: itemId,
                                         buyerName: callerName,
+                                        sellerName: "판매자", // 실제로는 API에서 받아온 판매자 정보 사용
                                         startDate: borrowStartDate,
                                         endDate: returnDate,
                                         totalPrice: totalPrice,
                                         deposit: deposit,
-                                        tradeOfferVersion:
-                                            tradeOfferVersion, // 추가: 버전 정보 전달
+                                        tradeOfferVersion: tradeOfferVersion, // 추가: 버전 정보 전달
+                                        sellerProfileImageUrl: profileImageUrl, // 상대방 프로필 이미지 추가
                                       ),
                                 ),
                               );
