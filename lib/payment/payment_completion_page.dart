@@ -13,6 +13,7 @@ class PaymentCompletionPage extends StatelessWidget {
   final DateTime endDate;
   final int totalPrice;
   final int deposit;
+  final String? sellerProfileImageUrl; // 추가된 매개변수
 
   const PaymentCompletionPage({
     Key? key,
@@ -24,6 +25,7 @@ class PaymentCompletionPage extends StatelessWidget {
     required this.endDate,
     required this.totalPrice,
     required this.deposit,
+    this.sellerProfileImageUrl, // 생성자에 추가
   }) : super(key: key);
 
   @override
