@@ -11,7 +11,7 @@ import 'post/mainBoard.dart';
 import 'search/search.dart';
 import 'chat/chat_list.dart';
 import 'overlayAnimation.dart';
-import 'buyerPost/buyerPost.dart';
+import 'buyerPostUpload/buyerPost.dart';
 
 
 final ApiClient apiClient = ApiClient();

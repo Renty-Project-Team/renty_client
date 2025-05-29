@@ -95,12 +95,15 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     child: ListTile(
-                      leading: Image.network(
-                        '${apiClient.getDomain}${item['imageUrl']}',
+                      leading: item['imagesUrl'] is List &&(item['imagesUrl'] as List).isNotEmpty
+                      ?Image.network(
+                        '${apiClient.getDomain}${item['imagesUrl']}',
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
-                      ),
+                        errorBuilder: (context, error, stackTrace) => _noImage(),
+                      )
+                          : _noImage(),
                       title: Text(item['title'], style: TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('${item['priceUnit']} ${item['price']}원'),
                       onTap: () {
@@ -121,7 +124,12 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
       );
     }
   }
-
+  Widget _noImage() => Container(
+    width: 90,
+    height: 90,
+    color: Colors.grey[300],
+    child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
+  );
 
   Future<void> _submitComment() async {
     if (await TokenManager.getToken() == null) {
@@ -181,8 +189,19 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
                       itemCount: images.length,
                       onPageChanged: (index) => setState(() => localIndex = index),
                       itemBuilder: (_, index) {
-                        final imageUrl = '${apiClient.getDomain}${images[index]}';
-                        return Image.network(imageUrl, fit: BoxFit.contain);
+                        if (images[index].toString().isNotEmpty) {
+                          final imageUrl = '${apiClient.getDomain}${images[index]}';
+                          return Image.network(
+                              imageUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) { // 여기에도 errorBuilder 추가
+                                print('Error loading fullscreen image: $imageUrl. Error: $error');
+                                return Center(child: _noImage());
+                              }
+                          );
+                        } else {
+                          return Center(child: _noImage()); // 경로가 비어있으면 플레이스홀더 반환
+                        }
                       },
                     ),
                   ),
@@ -224,10 +243,34 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
         itemCount: imageUrls.length,
         onPageChanged: (index) => setState(() => _currentImageIndex = index),
         itemBuilder: (_, index) {
-          final imageUrl = '${apiClient.getDomain}${imageUrls[index]}';
+          final String imagePath = imageUrls[index];
+          print('[DEBUG] _buildImageSlider - Attempting to load URL: ${apiClient.getDomain}$imagePath (imagePath: "$imagePath")');
+          if (imagePath.isEmpty) {
+            print('[DEBUG] _buildImageSlider - imagePath is empty. Using _noImage().');
+            return _noImage(); // 또는 다른 플레이스홀더 위젯
+          }
+
+          final imageUrl = '${apiClient.getDomain}$imagePath';
           return GestureDetector(
             onTap: () => _showFullScreenImage(imageUrls, index),
-            child: Image.network(imageUrl, fit: BoxFit.cover),
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                print('Error loading image in _buildImageSlider: $imageUrl. Error: $error');
+                return _noImage();
+              },
+              loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -250,7 +293,9 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
       );
     }
 
-    final imageUrls = List<String>.from(_post!['imagesUrl'] ?? []);
+    final imageUrls = _post!['imagesUrl'] != null && _post!['imagesUrl'] is List
+        ? List<String>.from(_post!['imagesUrl'].map((item) => item.toString())) // 각 요소를 String으로 변환
+        : List<String>.empty(growable: false);
     final comments = List<Map<String, dynamic>>.from(_post!['comments'] ?? []);
     final createdAt = DateTime.parse(_post!['createdAt']);
 

@@ -4,7 +4,7 @@ class SearchCategories extends StatelessWidget {  //아이콘 출가 할거 있�
   final List<Map<String, dynamic>> categories = [
     {'icon': Icons.checkroom, 'label': '의류 및 패션'},
     {'icon': Icons.computer, 'label': '전자제품'},
-    {'icon': Icons.chair, 'label': '가구 및 인테리어'},
+    {'icon': Icons.chair, 'label': '가구/인테리어'},
     {'icon': Icons.brush, 'label': '뷰티/미용'},
     {'icon': Icons.book, 'label': '도서'},
     {'icon': Icons.create, 'label': '문구'},

@@ -32,4 +32,30 @@ class SearchService {
     final List<dynamic> data = response.data;
     return data.map((json) => Product.fromJson(json)).toList();
   }
+
+  Future<List<BuyerPost>> searchBuyerPosts({
+    List<String>? category,
+    String? maxCreatedAt,
+    List<String>? titleWords,
+  }) async {
+    final queryParameters = <String, dynamic>{};
+    if (category != null) queryParameters['Category'] = category;
+    if (maxCreatedAt != null) queryParameters['MaxCreatedAt'] = maxCreatedAt;
+    if (titleWords != null && titleWords.isNotEmpty) {
+      for (var word in titleWords) {
+        queryParameters.putIfAbsent('TitleWords', () => []).add(word);
+      }
+    }
+
+    final response = await ApiClient().dio.get(
+      '/Post/posts',
+      queryParameters: queryParameters,
+    );
+
+    if (response.statusCode == 200 && response.data is List) {
+      return (response.data as List).map((e) => BuyerPost.fromJson(e)).toList();
+    } else {
+      return [];
+    }
+  }
 }

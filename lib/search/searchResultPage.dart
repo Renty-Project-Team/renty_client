@@ -4,6 +4,7 @@ import 'searchService.dart';
 import 'package:renty_client/post/postDataFile.dart';
 import 'package:renty_client/post/AdBoard.dart';
 import 'package:renty_client/post/mainBoard.dart'; // ProductCard 재활용
+import 'package:renty_client/post/buyerPost/buyerPost.dart';
 
 class SearchResultPage extends StatefulWidget {
   final String initialQuery;
@@ -23,14 +24,13 @@ class _SearchResultPageState extends State<SearchResultPage> {
   final TextEditingController _searchController = TextEditingController();
 
   List<Product> _products = [];
+  List<BuyerPost> _buyerPosts = [];
   bool _isLoading = false;
   bool _hasError = false;
+
   String? selectedPriceUnit;
-  double? minPrice;
-  double? maxPrice;
   RangeValues selectedRange = RangeValues(0, 100000);
   bool convertToDaily = false;
-
   int selectedCategoryIndex = 0;
 
   final List<Map<String, dynamic>> categories = [
@@ -48,100 +48,106 @@ class _SearchResultPageState extends State<SearchResultPage> {
     {'icon': Icons.local_hospital, 'label': 'HealthAndMedical', 'kor': '건강 및 의료'},
     {'icon': Icons.hiking, 'label': 'Hobbies', 'kor': '취미 및 여가'},
   ];
+  List<dynamic> _combinedList() {
+    final List<dynamic> combined = [];
 
+    combined.addAll(_products);
+    combined.addAll(_buyerPosts);
 
-  double convertToDayUnit(double price, String unit) {
-    switch (unit) {
-      case 'Week':
-        return price / 7;
-      case 'Month':
-        return price / 30;
-      default:
-        return price;
-    }
-  }
-  List<Product> _applyFilters(List<Product> products) {
-    return products.where((p) {
-      double price = p.price ?? 0.0;
+    combined.sort((a, b) {
+      final aDate = a is Product ? a.createdAt : (a as BuyerPost).createdAt;
+      final bDate = b is Product ? b.createdAt : (b as BuyerPost).createdAt;
+      return bDate.compareTo(aDate); // 최신순 정렬
+    });
 
-      if (convertToDaily) {
-        price = convertToDayUnit(price, p.priceUnit);
-      }
-
-      if (selectedPriceUnit != null && selectedPriceUnit!.isNotEmpty && !convertToDaily) {
-        if (p.priceUnit != selectedPriceUnit) return false;
-      }
-
-      if (price < selectedRange.start || price > selectedRange.end) return false;
-
-      return true;
-    }).toList();
-  }
-  @override
-  void initState() {
-    super.initState();
-    _searchController.text = widget.initialQuery;
-
-    // 초기 카테고리 index 설정
-    if (widget.initialCategory != null) {
-      final initialIndex = categories.indexWhere((c) => c['label'] == widget.initialCategory);
-      if (initialIndex >= 0) {
-        selectedCategoryIndex = initialIndex;
-      }
-    }
-
-    _fetchSearchResults();
+    return combined;
   }
   final Map<String, String> priceUnitLabels = {
     'Day': '일',
     'Week': '주',
     'Month': '월',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = widget.initialQuery;
+
+    if (widget.initialCategory != null) {
+      final index = categories.indexWhere((c) => c['label'] == widget.initialCategory);
+      if (index >= 0) selectedCategoryIndex = index;
+    }
+
+    _fetchSearchResults();
+  }
+
+  double convertToDayUnit(double price, String unit) {
+    switch (unit) {
+      case 'Week': return price / 7;
+      case 'Month': return price / 30;
+      default: return price;
+    }
+  }
+
+  List<Product> _applyFilters(List<Product> products) {
+    return products.where((p) {
+      double price = p.price ?? 0.0;
+      if (convertToDaily) price = convertToDayUnit(price, p.priceUnit);
+
+      if (selectedPriceUnit != null && selectedPriceUnit!.isNotEmpty && !convertToDaily) {
+        if (p.priceUnit != selectedPriceUnit) return false;
+      }
+
+      return price >= selectedRange.start && price <= selectedRange.end;
+    }).toList();
+  }
+
   Future<void> _fetchSearchResults() async {
     setState(() {
       _isLoading = true;
       _hasError = false;
     });
+
     try {
       final selectedCategory = categories[selectedCategoryIndex]['label'];
       final query = _searchController.text.trim();
 
-      final results = await SearchService().searchProducts(
+      final products = await SearchService().searchProducts(
         query: query,
         category: selectedCategory,
       );
-      final filtered = _applyFilters(results);
+      final buyers = await SearchService().searchBuyerPosts(
+        titleWords: query.isNotEmpty ? [query] : null,
+        category: selectedCategory?.isNotEmpty == true ? [selectedCategory!] : null,
+      );
+
       setState(() {
-        _products = results;
-        _hasError = false;
-        _isLoading = false; // ✅ 반드시 여기에!
+        _products = _applyFilters(products);
+        _buyerPosts = buyers;
+        _isLoading = false;
       });
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        setState(() {
-          _products = [];
-          _hasError = false;
-          _isLoading = false; // ✅ 여기도!
-        });
-      } else {
-        setState(() {
-          _hasError = true;
-          _isLoading = false; // ✅ 반드시!
-        });
-      }
-    } catch (_) {
+      print('검색 실패: ${e.response}');
+      setState(() {
+        _products = [];
+        _buyerPosts = [];
+        _hasError = false;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('예외 발생: $e');
       setState(() {
         _hasError = true;
-        _isLoading = false; // ✅ 예외 발생 시에도 종료!
+        _isLoading = false;
       });
     }
   }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -356,20 +362,29 @@ class _SearchResultPageState extends State<SearchResultPage> {
           ? Center(child: CircularProgressIndicator())
           : _hasError
           ? Center(child: Text('검색 중 오류가 발생했습니다.'))
-          : _products.isEmpty
+          : (_products.isEmpty && _buyerPosts.isEmpty)
           ? Center(child: Text('검색 결과가 없습니다.', style: TextStyle(fontSize: 20)))
           : ListView.separated(
-        itemCount: _products.length,
+        itemCount: _combinedList().length,
         separatorBuilder: (context, index) {
+          // 광고 삽입: 5개마다
           if ((index + 1) % 5 == 0) {
             return AdCard();
           }
           return SizedBox(height: 0);
         },
         itemBuilder: (context, index) {
-          return ProductCard(product: _products[index]);
+          final item = _combinedList()[index];
+          if (item is Product) {
+            return ProductCard(product: item);
+          } else if (item is BuyerPost) {
+            return BuyerPostCard(post: item);
+          } else {
+            return SizedBox(); // 안전 장치
+          }
         },
       ),
+
     );
   }
 }
