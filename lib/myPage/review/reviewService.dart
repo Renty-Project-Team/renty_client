@@ -24,6 +24,25 @@ class ReviewService {
     }
   }
 
+  // 상품 리뷰 가져오기 메서드 추가 (GET 방식)
+  Future<List<ReviewModel>> fetchProductReviews(int itemId) async {
+    try {
+      final response = await _apiClient.client.get(
+        '/Product/review',
+        queryParameters: {'itemId': itemId},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> reviewsData = response.data;
+        return reviewsData.map((json) => ReviewModel.fromJson(json)).toList();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<ReviewModel>> fetchAllProductReviews(int itemId) async {
     try {
       final response = await ApiClient().client.get(
