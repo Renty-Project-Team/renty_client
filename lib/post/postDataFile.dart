@@ -1,4 +1,5 @@
 import 'mainBoard.dart';
+
 class Product {
   final int id;
   final String title;
@@ -12,6 +13,7 @@ class Product {
   final DateTime createdAt;
   final String imageUrl;
   final String userName;
+  String state; // 상태 필드 추가 (final 제거하여 수정 가능하게)
 
   Product({
     required this.id,
@@ -26,6 +28,7 @@ class Product {
     required this.createdAt,
     required this.imageUrl,
     required this.userName,
+    required this.state, // 생성자에 state 추가
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -40,9 +43,13 @@ class Product {
       viewCount: json['viewCount'] ?? 0,
       wishCount: json['wishCount'] ?? 0,
       chatCount: json['chatCount'] ?? 0,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      createdAt:
+          json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'])
+              : DateTime.now(),
       imageUrl: json['imageUrl'] ?? '',
-      userName: json['userName'] ?? '', // JSON에서 userName 파싱 추가
+      userName: json['userName'] ?? '',
+      state: json['state'] ?? 'Active', // JSON에서 state 파싱 추가 (기본값: Active)
     );
   }
 }

@@ -28,6 +28,7 @@ class SellerProduct extends Product implements PostUnion {
     required super.createdAt,
     required super.imageUrl,
     required super.userName,
+    super.state = 'Active',
   });
 }
 

@@ -14,8 +14,8 @@ class ApiClient {
   bool _isInitialized = false;
 
   // 도메인 (주석 해제해서 쓰십쇼)
-  // static const String domain = "https://deciding-silkworm-set.ngrok-free.app";
-  static const String domain = "http://138.2.125.12:8086";
+  static const String domain = "https://deciding-silkworm-set.ngrok-free.app";
+  // static const String domain = "http://138.2.125.12:8086";
   // static const String domain = "http://localhost:8088";
   // static const String domain = "http://localhost:8086";
 

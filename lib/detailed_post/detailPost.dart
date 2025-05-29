@@ -275,7 +275,7 @@ class _DetailPageState extends State<DetailPage> {
                             children: [
                               TextSpan(
                                 text:
-                                    '[${product.state == 'Active' ? '대여 가능' : '대여중'}] ',
+                                    '[${product.state == 'Active' ? '대여 가능' : '대여 불가능'}] ',
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,

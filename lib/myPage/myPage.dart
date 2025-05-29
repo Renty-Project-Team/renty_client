@@ -22,6 +22,7 @@ import 'myRentPage/myRentOut.dart';
 import 'myRentPageBuyer/myRentIn.dart';
 import 'package:renty_client/myPage/review/receivedReviews.dart';
 import 'package:renty_client/myPage/review/writtenReviews.dart';
+import 'package:renty_client/myPage/MyBuyerPost/myBuyerPostBoard.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -91,6 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
     {'title': '회원 정보 수정', 'icon': Icons.arrow_forward_ios},
     {'title': '수익금', 'icon': Icons.arrow_forward_ios},
     {'title': '내 대여 게시글', 'icon': Icons.arrow_forward_ios},
+    {'title': '내 대여 요청 게시글', 'icon': Icons.arrow_forward_ios}, // 추가
     {'title': '결제완료 물품', 'icon': Icons.arrow_forward_ios},
   ];
 
@@ -174,6 +176,18 @@ class _ProfilePageState extends State<ProfilePage> {
         context,
         MaterialPageRoute(builder: (context) => const MyPostListPage()),
       );
+    } else if (title == '내 대여 요청 게시글') {
+      // 추가
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MyBuyerPostListPage()),
+      );
+    } else if (title == '결제완료 물품') {
+      // 결제완료 물품 페이지로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PaymentHistoryPage()),
+      );
     } else if (title == '앱 정보') {
       // 앱 정보 페이지로 이동
       Navigator.push(
@@ -227,11 +241,6 @@ class _ProfilePageState extends State<ProfilePage> {
         MaterialPageRoute(
           builder: (context) => WrittenReviewsPage(currentUserName: _userName),
         ),
-      );
-    } else if (title == '결제완료 물품') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const PaymentHistoryPage()),
       );
     } else {
       // 다른 항목들은 기존과 같이 처리
