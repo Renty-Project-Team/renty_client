@@ -18,7 +18,8 @@ class BuyerPostService {
       return data.map((json) => BuyerPost.fromJson(json)).toList();
     } catch (e) {
       print('API error: $e');
-      throw Exception('대여 요청 게시글 목록 불러오기 실패');
+      // 예외를 던지는 대신 빈 리스트 반환하거나, 더 구체적인 에러 처리
+      return []; // 또는 rethrow; 를 사용하여 예외를 다시 던짐
     }
   }
 }
