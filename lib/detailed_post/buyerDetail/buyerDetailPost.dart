@@ -317,12 +317,19 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
                   SizedBox(height: 16),
                   Row(
                     children: [
-                      CircleAvatar(child: Icon(Icons.person)),
+                      CircleAvatar(
+                        backgroundImage: NetworkImage('${apiClient.getDomain}${_post!['userProfileImage']}'),
+                      ),
                       SizedBox(width: 8),
-                      Text(_post!['userName'], style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        _post!['userName'],
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       Spacer(),
-                      Text(DateFormat('yyyy.MM.dd HH:mm').format(createdAt),
-                          style: TextStyle(color: Colors.grey)),
+                      Text(
+                        DateFormat('yyyy.MM.dd HH:mm').format(createdAt),
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ],
                   ),
                   Divider(height: 24),
