@@ -1,15 +1,15 @@
 import 'postDataFile.dart';
 import 'package:renty_client/core/api_client.dart';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 
 class PostService {
   Future<List<Product>> fetchProducts({
     List<String>? categorys,
     String? maxCreatedAt,
-    List<String>? titleWords
+    List<String>? titleWords,
   }) async {
     final client = ApiClient().client;
-
     final queryParams = <String, dynamic>{};
     if (categorys != null) queryParams['Categorys'] = categorys;
     if (maxCreatedAt != null) queryParams['MaxCreatedAt'] = maxCreatedAt;
@@ -17,21 +17,22 @@ class PostService {
 
     try {
       final response = await client.get('/Product/posts', queryParameters: queryParams);
-      List data = response.data;  // 이미 List<dynamic>임
-
+      List data = response.data;
       return data.map((json) => Product.fromJson(json)).toList();
-    } catch (e) {
-      print('API error: $e');
-      throw Exception('상품 목록 불러오기 실패');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return []; // ❗ 조건 불일치 → 더 불러올 데이터 없음
+      }
+      rethrow;
     }
   }
+
   Future<List<BuyerPost>> fetchBuyerPosts({
     List<String>? categorys,
     String? maxCreatedAt,
     List<String>? titleWords,
   }) async {
     final client = ApiClient().client;
-
     final queryParams = <String, dynamic>{};
     if (categorys != null) queryParams['Categorys'] = categorys;
     if (maxCreatedAt != null) queryParams['MaxCreatedAt'] = maxCreatedAt;
@@ -41,9 +42,11 @@ class PostService {
       final response = await client.get('/Post/posts', queryParameters: queryParams);
       List data = response.data;
       return data.map((json) => BuyerPost.fromJson(json)).toList();
-    } catch (e) {
-      print('API error (buyer posts): $e');
-      throw Exception('구매자 게시글 불러오기 실패');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return []; // ❗ 조건 불일치 → 더 불러올 데이터 없음
+      }
+      rethrow;
     }
   }
 }
