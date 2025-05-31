@@ -44,12 +44,8 @@ class _ProductReviewsSectionState extends State<ProductReviewsSection> {
   }
 
   void _loadReviews() {
-    _reviewsFuture = _reviewService.fetchAllReviews().then<List<ReviewModel>>((
-      reviews,
-    ) {
-      // 이 상품의 리뷰만 필터링
-      return reviews.where((review) => review.itemId == widget.itemId).toList();
-    });
+    // 로그인과 상관없이 항상 호출 가능한 API 사용
+    _reviewsFuture = _reviewService.fetchProductReviews(widget.itemId);
   }
 
   @override

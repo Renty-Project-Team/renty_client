@@ -50,6 +50,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.11.0  # 0.13.1에서 다운그레이드
+  flutter_app_name: ^0.1.1  # 추가
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -102,3 +104,14 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon" # android/app/src/main/res/ 폴더에 생성될 아이콘 이름
+  ios: true                # iOS 아이콘도 생성
+  image_path: "assets/app_logo.png" # 사용할 이미지 경로
+  min_sdk_android: 21     # Android 최소 SDK 버전
+  adaptive_icon_background: "#ffffff" # Android 적응형 아이콘 배경색 (Android 8.0 이상)
+  remove_alpha_ios: true  # iOS 아이콘에서 알파 채널 제거
+
+flutter_app_name:
+  name: "빌려봄"
