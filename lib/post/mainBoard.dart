@@ -40,6 +40,7 @@ class ProductListPage extends StatefulWidget {
 class _ProductListPageState extends State<ProductListPage> {
   List<PostUnion> _items = [];
   bool _isLoading = false;
+  bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -51,13 +52,81 @@ class _ProductListPageState extends State<ProductListPage> {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 300 &&
           !_isLoading) {
+        _fetchMore();
         // 페이징 처리 시 사용 가능
       }
     });
   }
 
-  Future<void> _fetchAll() async {
+
+  Future<void> _fetchMore() async {
+    if (!_hasMore || _isLoading) return;
+
     setState(() => _isLoading = true);
+    try {
+      final lastItem = _items.last;
+      final lastCreatedAt = lastItem is SellerProduct
+          ? lastItem.createdAt.toIso8601String()
+          : (lastItem as BuyerPost).createdAt.toIso8601String();
+
+      final postService = PostService();
+
+      // 404 방지 처리된 서비스 메서드 호출
+      final List<SellerProduct> newProducts = (await postService.fetchProducts(maxCreatedAt: lastCreatedAt))
+          .map((p) => SellerProduct(
+        id: p.id,
+        title: p.title,
+        price: p.price,
+        deposit: p.deposit,
+        categorys: p.categorys,
+        priceUnit: p.priceUnit,
+        viewCount: p.viewCount,
+        wishCount: p.wishCount,
+        chatCount: p.chatCount,
+        createdAt: p.createdAt,
+        imageUrl: p.imageUrl,
+        userName: p.userName,
+      ))
+          .toList();
+
+      final List<BuyerPost> newBuyerPosts = await postService.fetchBuyerPosts(maxCreatedAt: lastCreatedAt);
+
+      final List<PostUnion> newItems = [...newProducts, ...newBuyerPosts];
+
+      // 🔐 중복 방지: ID 기준 필터링
+      final existingIds = _items.map((e) => e is SellerProduct ? 's_${e.id}' : 'b_${(e as BuyerPost).id}').toSet();
+      final filteredNewItems = newItems.where((e) {
+        final idKey = e is SellerProduct ? 's_${e.id}' : 'b_${(e as BuyerPost).id}';
+        return !existingIds.contains(idKey);
+      }).toList();
+
+      if (filteredNewItems.isEmpty) {
+        _hasMore = false;
+        print('${_hasMore}');// 새로운 게 없다면 더 이상 불러올 것 없음
+      } else {
+        _items.addAll(filteredNewItems);
+        _items.sort((a, b) {
+          final aTime = a is SellerProduct ? a.createdAt : (a as BuyerPost).createdAt;
+          final bTime = b is SellerProduct ? b.createdAt : (b as BuyerPost).createdAt;
+          return bTime.compareTo(aTime); // 최신순 정렬
+        });
+      }
+
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('더 불러오기 실패: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchAll() async {
+    setState(() {
+      _isLoading = true;
+      _hasMore = true;
+    });
     try {
       final postService = PostService();
       final products = await postService.fetchProducts();
@@ -109,18 +178,25 @@ class _ProductListPageState extends State<ProductListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final adInterval = 5;
     final listView = RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView.separated(
+      child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _items.length,
-        separatorBuilder: (context, index) {
-          if ((index + 1) % 5 == 0) return AdCard();
-          return SizedBox.shrink();
-        },
+        itemCount: _items.length + (_items.length ~/ adInterval),
         itemBuilder: (context, index) {
-          final item = _items[index];
+          final numAdsBefore = index ~/ (adInterval + 1);
+
+          // 광고 위치: 6, 12, 18, ...
+          if ((index + 1) % (adInterval + 1) == 0) {
+            return AdCard();
+          }
+
+          final itemIndex = index - numAdsBefore;
+          if (itemIndex >= _items.length) return SizedBox.shrink(); // 안전하게 방어
+
+          final item = _items[itemIndex];
 
           return InkWell(
             onTap: () {
