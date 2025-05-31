@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'buyerPostService.dart';
-
+import 'package:renty_client/detailed_post/buyerDetail/buyerDetailPost.dart';
 class PostUploadPage extends StatefulWidget {
   const PostUploadPage({super.key});
 
@@ -54,13 +54,19 @@ class _PostUploadPageState extends State<PostUploadPage> {
     }
 
     try {
-      await PostUploadService.uploadPost(
+      int postid  =  await PostUploadService.uploadPost(
         title: title,
         description: desc,
         category: category,
         images: _selectedImages,
       );
+      Navigator.pushReplacement(context,
+        MaterialPageRoute(
+          builder: (context) => BuyerPostDetailPage(postId: postid), // 상세 페이지에 Product 전달
+        ),
+      );
       _showMessage('업로드 성공!');
+
     } catch (e) {
       _showMessage('오류 발생: ${e.toString()}');
     }

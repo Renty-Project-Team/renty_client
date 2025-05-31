@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:renty_client/core/api_client.dart';
 
 class PostUploadService {
-  static Future<void> uploadPost({
+  static Future<int> uploadPost({
     required String title,
     required String description,
     required String category,
@@ -31,7 +31,10 @@ class PostUploadService {
     final dio = ApiClient().client;
     final response = await dio.post('/Post/upload', data: formData);
 
-    if (response.statusCode != 200) {
+    if (response.statusCode == 200) {
+      Map<String, dynamic> jsonData = response.data;
+      return response.data['postId'];
+    }else{
       throw Exception('업로드 실패: ${response.statusCode}');
     }
   }
