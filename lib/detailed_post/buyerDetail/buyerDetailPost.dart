@@ -95,17 +95,15 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     child: ListTile(
-                      leading: item['imagesUrl'] is List &&(item['imagesUrl'] as List).isNotEmpty
-                      ?Image.network(
-                        '${apiClient.getDomain}${item['imagesUrl']}',
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
+                        leading: Image.network(
+                          '${apiClient.getDomain}${item['imageUrl']}',
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => _noImage(),
-                      )
-                          : _noImage(),
+                      ),
                       title: Text(item['title'], style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('${item['priceUnit']} ${item['price']}원'),
+                      subtitle: Text('${priceUnitMap[item['priceUnit']]} ${NumberFormat("#,###").format(item['price'].toInt())}원'),
                       onTap: () {
                         setState(() => _selectedItem = item);
                         Navigator.pop(context);
@@ -415,7 +413,7 @@ class _BuyerPostDetailPageState extends State<BuyerPostDetailPage> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${item['title']} • ${priceUnitMap[item['priceUnit']] ?? item['priceUnit']} ${NumberFormat("#,###").format(item['price'])}원',
+                    '${item['title']} • ${priceUnitMap[item['priceUnit']] ?? item['priceUnit']} ${NumberFormat("#,###").format(item['price'].toInt())}원',
                     style: TextStyle(fontSize: 14),
                   ),
                 ),
